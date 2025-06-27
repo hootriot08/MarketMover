@@ -1,0 +1,39 @@
+import React, { useState } from 'react'
+import axios from 'axios'
+
+const tickers = ['AAPL', 'AMZN', 'TSLA', 'NVDA', 'GOOG']
+const timeframes = ['1 day', '1 week', '1 month']
+
+function App() {
+  const [ticker, setTicker] = useState('AAPL')
+  const [timeframe, setTimeframe] = useState('1 day')
+  const [result, setResult] = useState('')
+
+  const handleSubmit = async () => {
+    const res = await axios.post('http://localhost:3001/analyze', { ticker, timeframe })
+    setResult(res.data.result)
+  }
+
+  return (
+    <div style={{ padding: '2rem' }}>
+      <h1>MarketMover</h1>
+      <label>
+        Ticker:
+        <select value={ticker} onChange={e => setTicker(e.target.value)}>
+          {tickers.map(t => <option key={t}>{t}</option>)}
+        </select>
+      </label>
+      <label>
+        Timeframe:
+        <select value={timeframe} onChange={e => setTimeframe(e.target.value)}>
+          {timeframes.map(tf => <option key={tf}>{tf}</option>)}
+        </select>
+      </label>
+      <button onClick={handleSubmit}>Analyze</button>
+      <pre style={{ marginTop: '1rem', whiteSpace: 'pre-wrap' }}>{result}</pre>
+    </div>
+  )
+}
+
+export default App
+
