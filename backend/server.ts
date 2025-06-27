@@ -4,6 +4,7 @@ import bodyParser from 'body-parser'
 import type { Request, Response } from 'express'
 import axios from 'axios'
 import yahooFinance from 'yahoo-finance2'
+import ollama from 'ollama'
 
 const app = express()
 const port = 3001
@@ -82,7 +83,6 @@ app.post('/analyze', async (req: Request, res: Response): Promise<void> => {
     const priceData = await getStockPriceChange(ticker, timeframe)
     
     const summary = `Here's a quick summary of ${ticker} over ${timeframe}.`
-    const analysis = `Our AI believes ${ticker} has shown noteworthy activity recently based on external sentiment.`
 
     // Construct a strict NewsAPI query: must include the ticker, "stock", and either "up" or "down"
     const query = `${ticker} AND stock AND (up OR down)`
@@ -100,6 +100,22 @@ app.post('/analyze', async (req: Request, res: Response): Promise<void> => {
 
     const formattedHeadlines = headlinesArray.join('\n')
     console.log('📦 Final formatted headlines:', formattedHeadlines)
+
+    // --- Ollama LLM integration for AI analysis ---
+    let analysis = ''
+    try {
+      const direction = priceData && priceData.percentChange !== 0 ? (priceData.percentChange > 0 ? 'up' : 'down') : 'flat'
+      const ollamaPrompt = `Given these news headlines and the price change, why did ${ticker} move ${direction} over the last ${timeframe}?\n\nHeadlines:\n${formattedHeadlines}\n\nPrice Change: ${priceData ? priceData.percentChange + '%' : 'N/A'}`
+      const ollamaResponse = await ollama.chat({
+        model: 'llama3',
+        messages: [{ role: 'user', content: ollamaPrompt }]
+      })
+      analysis = ollamaResponse.message.content.trim()
+    } catch (ollamaErr) {
+      console.error('❌ Ollama error:', ollamaErr)
+      analysis = 'AI analysis unavailable.'
+    }
+    // --- End Ollama integration ---
 
     res.json({
       summary,

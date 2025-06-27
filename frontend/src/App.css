@@ -256,6 +256,12 @@ input[type="text"]:focus {
   padding-bottom: 8px;
 }
 
+/* Make Price Summary text larger for better fit */
+.result-card:has(h3:contains('Price Summary')) .result-content,
+.result-card.price-summary .result-content {
+  font-size: 1.15rem;
+}
+
 .result-content {
   line-height: 1.6;
   color: #333;
@@ -371,5 +377,43 @@ input[type="text"]:focus {
   .back-button {
     top: 15px;
     left: 15px;
+  }
+}
+
+.results-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.results-row {
+  display: flex;
+  flex-direction: row;
+  gap: 32px;
+  width: 100%;
+  justify-content: center;
+}
+
+.result-card.full-width {
+  width: 100%;
+  max-width: 1100px;
+  min-width: 0;
+  margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+  .results-row {
+    flex-direction: column;
+    gap: 24px;
+    align-items: center;
+  }
+  .result-card.full-width {
+    max-width: 98vw;
+  }
+  .result-card:has(h3:contains('Price Summary')) .result-content,
+  .result-card.price-summary .result-content {
+    font-size: 1.05rem;
   }
 }

@@ -94,55 +94,47 @@ const App = () => {
             </div>
           </div>
           
-          <div className="results-container">
-            {percentChange !== null && (
-              <div className="result-card">
-                <h3>Price Summary</h3>
-                <div className="result-content">
-                  <p>
-                    <strong>Latest Close:</strong> ${latestClose?.toFixed(2)}<br/>
-                    <strong>Previous Close:</strong> ${previousClose?.toFixed(2)}<br/>
-                    <strong>Change:</strong>{' '}
-                    <span style={{ 
-                      color: percentChange >= 0 ? '#00ff66' : '#ff4444',
-                      fontWeight: 'bold',
-                      marginLeft: '5px'
-                    }}>
-                      {percentChange >= 0 ? '+' : ''}{percentChange}%
-                    </span>
-                  </p>
-                  <p>
-                    The price of {ticker} was ${previousClose?.toFixed(2)} {timeframe} ago and is currently ${latestClose?.toFixed(2)}, denoting a {percentChange >= 0 ? '+' : ''}{percentChange}% change.
-                  </p>
+          <div className="results-container results-grid">
+            <div className="results-row">
+              {percentChange !== null && (
+                <div className="result-card">
+                  <h3>Price Summary</h3>
+                  <div className="result-content">
+                    <p>
+                      <strong>Latest Close:</strong> ${latestClose?.toFixed(2)}<br/>
+                      <strong>Previous Close:</strong> ${previousClose?.toFixed(2)}<br/>
+                      <strong>Change:</strong>{' '}
+                      <span style={{ 
+                        color: percentChange >= 0 ? '#00ff66' : '#ff4444',
+                        fontWeight: 'bold',
+                        marginLeft: '5px'
+                      }}>
+                        {percentChange >= 0 ? '+' : ''}{percentChange}%
+                      </span>
+                    </p>
+                    <p>
+                      The price of {ticker} was ${previousClose?.toFixed(2)} {timeframe} ago and is currently ${latestClose?.toFixed(2)}, denoting a {percentChange >= 0 ? '+' : ''}{percentChange}% change.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
-            
-            {summary && (
-              <div className="result-card">
-                <h3>Analysis Summary</h3>
-                <div className="result-content">
-                  <p>{summary}</p>
+              )}
+              {headlines && (
+                <div className="result-card">
+                  <h3>Recent Headlines</h3>
+                  <div className="result-content">
+                    {headlines.split('\n').map((line, index) => (
+                      <p key={index}>{line}</p>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-            
-            {analysis && (
-              <div className="result-card">
+              )}
+            </div>
+            {(summary || analysis) && (
+              <div className="result-card full-width">
                 <h3>AI Analysis</h3>
                 <div className="result-content">
-                  <p>{analysis}</p>
-                </div>
-              </div>
-            )}
-            
-            {headlines && (
-              <div className="result-card">
-                <h3>Recent Headlines</h3>
-                <div className="result-content">
-                  {headlines.split('\n').map((line, index) => (
-                    <p key={index}>{line}</p>
-                  ))}
+                  {summary && <p>{summary}</p>}
+                  {analysis && <p>{analysis}</p>}
                 </div>
               </div>
             )}
