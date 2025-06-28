@@ -44,8 +44,6 @@ const App = () => {
   const [previousDate, setPreviousDate] = useState<string | null>(null)
   const [latestDate, setLatestDate] = useState<string | null>(null)
   const [signalBullets, setSignalBullets] = useState<string[]>([])
-  const [companySummary, setCompanySummary] = useState('')
-  const [macroSummary, setMacroSummary] = useState('')
 
   const handleSubmit = async () => {
     setLoading(true)
@@ -67,8 +65,6 @@ const App = () => {
     setMissingContext('')
     setPriceSentimentContrast('')
     setSignalBullets([])
-    setCompanySummary('')
-    setMacroSummary('')
 
     try {
       const response = await fetch('http://localhost:3001/analyze', {
@@ -102,8 +98,6 @@ const App = () => {
       setPreviousClose(data.previousClose ?? null)
       setPreviousDate(data.previousDate ?? null)
       setLatestDate(data.latestDate ?? null)
-      setCompanySummary(data.companySummary || '')
-      setMacroSummary(data.macroSummary || '')
       setLoading(false)
       setShowResults(true)
     } catch (error) {
@@ -127,8 +121,6 @@ const App = () => {
       setPreviousClose(null)
       setPreviousDate(null)
       setLatestDate(null)
-      setCompanySummary('')
-      setMacroSummary('')
       setLoading(false)
       setShowResults(true)
     }
@@ -196,49 +188,6 @@ const App = () => {
                 </div>
               )}
             </div>
-            {(signalBullets && signalBullets.length > 0) || companySummary || macroSummary ? (
-              <div className="result-card full-width section-card" id="ai-analysis">
-                <h3><span role="img" aria-label="ai">🤖</span> AI Analysis</h3>
-                <div className="result-content">
-                  {signalBullets && signalBullets.length > 0 && (
-                    <ul className="ai-bullets" style={{ listStyle: 'none', paddingLeft: 0, margin: 0 }}>
-                      {signalBullets.slice(0, 2).map((b, i) => (
-                        <li key={i} style={{ marginBottom: '1em', fontSize: '1.08rem', lineHeight: 1.5, fontWeight: 600, color: '#2c3e50' }}>{b}</li>
-                      ))}
-                    </ul>
-                  )}
-                  {companySummary && (
-                    <div style={{ margin: '1em 0 0 0', fontWeight: 500, color: '#222' }}>
-                      <strong>Company Summary</strong>
-                      <ul style={{ margin: '0.5em 0 0 1.5em', padding: 0 }}>
-                        {companySummary.split(/\n|•/).map((item, idx) => {
-                          const trimmed = item.trim().replace(/^\*+|\*+$/g, '');
-                          return trimmed ? <li key={idx} style={{ marginBottom: '0.5em' }}>{trimmed}</li> : null;
-                        })}
-                      </ul>
-                    </div>
-                  )}
-                  {macroSummary && (
-                    <div style={{ margin: '1em 0 0 0', fontWeight: 500, color: '#222' }}>
-                      <strong>Macro Summary</strong>
-                      <ul style={{ margin: '0.5em 0 0 1.5em', padding: 0 }}>
-                        {macroSummary.split(/\n|•/).map((item, idx) => {
-                          const trimmed = item.trim().replace(/^\*+|\*+$/g, '');
-                          return trimmed ? <li key={idx} style={{ marginBottom: '0.5em' }}>{trimmed}</li> : null;
-                        })}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="result-card full-width section-card" id="ai-analysis">
-                <h3><span role="img" aria-label="ai">🤖</span> AI Analysis</h3>
-                <div className="result-content">
-                  <p style={{ color: '#b00', fontWeight: 500 }}>AI analysis unavailable. (Invalid LLM output)</p>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>

@@ -4,7 +4,6 @@ import bodyParser from 'body-parser'
 import type { Request, Response } from 'express'
 import axios from 'axios'
 import yahooFinance from 'yahoo-finance2'
-import ollama from 'ollama'
 const { Readability } = require('node-readability')
 
 const app = express()
@@ -181,53 +180,6 @@ app.post('/analyze', async (req: Request, res: Response): Promise<void> => {
 
     const basePrompt = `You are a financial assistant.\n\nYour job is to explain a stock's price movement based on the news and macroeconomic context provided.\n\nReturn your response in two sections, each as a bullet point list:\n\n- **Company Summary**: Bullet points (not long sentences) explaining the 1–3 most relevant company-specific news or events that likely explain the stock's price movement. Each bullet should be a single, clear idea.\n- **Macro Summary**: Bullet points (not long sentences) explaining any broader market or macroeconomic factors that may have influenced the stock or sentiment. If nothing relevant, just write: \`None observed.\`\n\nGuidelines:\n- Use bullet points (•) for each section.\n- Do not include irrelevant or generic news.\n- Do not write any introductory or summary sentences.\n- Make the output feel like something a junior analyst would send to a trader.\n\nStock: ${ticker}\nDate range: ${startDate} to ${endDate}\nPrice change: ${priceChange}\nS&P 500 change: ${sp500Change}\n\nNews articles:\n${articleSection}\n\nOutput ONLY the two bullet point sections above. No preamble, no follow-up explanation.`;
 
-    // --- Ollama LLM integration for AI analysis ---
-    let companySummary = ''
-    let macroSummary = ''
-    let signalBullets: string[] = []
-    let raw = ''
-    let triedForceful = false;
-    async function getLLMOutput(prompt: string): Promise<{companySummary: string, macroSummary: string, raw: string}> {
-      const ollamaResponse = await ollama.chat({
-        model: 'llama3',
-        messages: [{ role: 'user', content: prompt }]
-      })
-      const raw = ollamaResponse.message.content.trim()
-      
-      // Extract company-relevant news section
-      let companySummary = ''
-      const companyMatch = raw.match(/•\s*\*\*Company-Relevant News\*\*:\s*([\s\S]*?)(?=\n•\s*\*\*Macroeconomic Factors\*\*:|$)/)
-      if (companyMatch) {
-        companySummary = companyMatch[1].trim()
-      }
-      
-      // Extract macroeconomic factors section
-      let macroSummary = ''
-      const macroMatch = raw.match(/•\s*\*\*Macroeconomic Factors\*\*:\s*([\s\S]*?)(?=\n|$)/)
-      if (macroMatch) {
-        macroSummary = macroMatch[1].trim()
-      }
-      
-      return { companySummary, macroSummary, raw }
-    }
-    // Try once with base prompt
-    let llmResult = await getLLMOutput(basePrompt)
-    // If missing, try again with a more forceful prompt
-    if ((!llmResult.companySummary || !llmResult.macroSummary) && !triedForceful) {
-      triedForceful = true;
-      const forcefulPrompt = basePrompt + '\n\nIMPORTANT: Ensure your response follows the exact format specified above with the 📊 AI Analysis section containing both Company-Relevant News and Macroeconomic Factors subsections.'
-      llmResult = await getLLMOutput(forcefulPrompt)
-    }
-    companySummary = llmResult.companySummary
-    macroSummary = llmResult.macroSummary
-    raw = llmResult.raw
-    
-    // Fallback: if still missing, use the raw output as company summary
-    if (!companySummary && raw) {
-      companySummary = raw
-    }
-    // --- End Ollama integration ---
-
     const headlinesArray = articles.map((article: any) => `• ${article.title}`)
     const formattedHeadlines = headlinesArray.join('\n')
 
@@ -247,8 +199,6 @@ app.post('/analyze', async (req: Request, res: Response): Promise<void> => {
     res.json({
       summary: `Here's a quick summary of ${ticker} over ${timeframe}.`,
       // signalBullets, // REMOVE from response
-      companySummary,
-      macroSummary,
       analysis: '',
       analysisBullets: allAnalysisBullets,
       macroBullets: [],
@@ -260,7 +210,7 @@ app.post('/analyze', async (req: Request, res: Response): Promise<void> => {
       confidenceLevel: '',
       missingContext: '',
       priceSentimentContrast: '',
-      rawAi: raw,
+      rawAi: '',
       lastUpdated,
       headlines: formattedHeadlines || 'No recent headlines found.',
       percentChange: priceData?.percentChange || null,
