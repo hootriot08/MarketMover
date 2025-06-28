@@ -14,17 +14,38 @@ function generateBullishPath(k: number) {
   return `M${points.join(' L')}`
 }
 
+function formatDate(dateStr: string | null | undefined) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
 const App = () => {
   const [ticker, setTicker] = useState('AAPL')
   const [timeframe, setTimeframe] = useState('')
   const [summary, setSummary] = useState('')
   const [headlines, setHeadlines] = useState('')
   const [analysis, setAnalysis] = useState('')
+  const [analysisBullets, setAnalysisBullets] = useState<string[]>([])
+  const [macroBullets, setMacroBullets] = useState<string[]>([])
+  const [noImpactBullets, setNoImpactBullets] = useState<string[]>([])
+  const [financialBullets, setFinancialBullets] = useState<string[]>([])
+  const [managementBullets, setManagementBullets] = useState<string[]>([])
+  const [institutionalBullets, setInstitutionalBullets] = useState<string[]>([])
+  const [aiSummary, setAiSummary] = useState('')
+  const [confidenceLevel, setConfidenceLevel] = useState('')
+  const [missingContext, setMissingContext] = useState('')
+  const [priceSentimentContrast, setPriceSentimentContrast] = useState('')
   const [loading, setLoading] = useState(false)
   const [showResults, setShowResults] = useState(false)
   const [percentChange, setPercentChange] = useState<number | null>(null)
   const [latestClose, setLatestClose] = useState<number | null>(null)
   const [previousClose, setPreviousClose] = useState<number | null>(null)
+  const [previousDate, setPreviousDate] = useState<string | null>(null)
+  const [latestDate, setLatestDate] = useState<string | null>(null)
+  const [signalBullets, setSignalBullets] = useState<string[]>([])
+  const [companySummary, setCompanySummary] = useState('')
+  const [macroSummary, setMacroSummary] = useState('')
 
   const handleSubmit = async () => {
     setLoading(true)
@@ -33,6 +54,21 @@ const App = () => {
     setPercentChange(null)
     setLatestClose(null)
     setPreviousClose(null)
+    setPreviousDate(null)
+    setLatestDate(null)
+    setAnalysisBullets([])
+    setMacroBullets([])
+    setNoImpactBullets([])
+    setFinancialBullets([])
+    setManagementBullets([])
+    setInstitutionalBullets([])
+    setAiSummary('')
+    setConfidenceLevel('')
+    setMissingContext('')
+    setPriceSentimentContrast('')
+    setSignalBullets([])
+    setCompanySummary('')
+    setMacroSummary('')
 
     try {
       const response = await fetch('http://localhost:3001/analyze', {
@@ -50,9 +86,24 @@ const App = () => {
       setSummary(data.summary || '')
       setHeadlines(data.headlines || '')
       setAnalysis(data.analysis || '')
+      setAnalysisBullets(data.analysisBullets || [])
+      setMacroBullets(data.macroBullets || [])
+      setNoImpactBullets(data.noImpactBullets || [])
+      setFinancialBullets(data.financialBullets || [])
+      setManagementBullets(data.managementBullets || [])
+      setInstitutionalBullets(data.institutionalBullets || [])
+      setAiSummary(data.aiSummary || '')
+      setConfidenceLevel(data.confidenceLevel || '')
+      setMissingContext(data.missingContext || '')
+      setPriceSentimentContrast(data.priceSentimentContrast || '')
+      setSignalBullets(data.signalBullets || [])
       setPercentChange(data.percentChange ?? null)
       setLatestClose(data.latestClose ?? null)
       setPreviousClose(data.previousClose ?? null)
+      setPreviousDate(data.previousDate ?? null)
+      setLatestDate(data.latestDate ?? null)
+      setCompanySummary(data.companySummary || '')
+      setMacroSummary(data.macroSummary || '')
       setLoading(false)
       setShowResults(true)
     } catch (error) {
@@ -60,9 +111,24 @@ const App = () => {
       setSummary('Error: Failed to analyze stock. Please try again.')
       setHeadlines('')
       setAnalysis('')
+      setAnalysisBullets([])
+      setMacroBullets([])
+      setNoImpactBullets([])
+      setFinancialBullets([])
+      setManagementBullets([])
+      setInstitutionalBullets([])
+      setAiSummary('')
+      setConfidenceLevel('')
+      setMissingContext('')
+      setPriceSentimentContrast('')
+      setSignalBullets([])
       setPercentChange(null)
       setLatestClose(null)
       setPreviousClose(null)
+      setPreviousDate(null)
+      setLatestDate(null)
+      setCompanySummary('')
+      setMacroSummary('')
       setLoading(false)
       setShowResults(true)
     }
@@ -73,7 +139,6 @@ const App = () => {
       <div className="app-container">
         <div className="results-page">
           <button onClick={() => setShowResults(false)} className="back-button">← Back</button>
-          
           <div className="results-header">
             <img src="/images/trans_logo.png" alt="logo" className="logo" />
             <div className="ticker-header">
@@ -94,11 +159,11 @@ const App = () => {
             </div>
           </div>
           
-          <div className="results-container results-grid">
-            <div className="results-row">
+          <div className="results-container results-grid" style={{ marginTop: '2.5rem', gap: '2.5rem' }}>
+            <div className="results-row two-col">
               {percentChange !== null && (
-                <div className="result-card">
-                  <h3>Price Summary</h3>
+                <div className="result-card section-card" id="price-summary">
+                  <h3><span role="img" aria-label="chart">📈</span> Price Summary</h3>
                   <div className="result-content">
                     <p>
                       <strong>Latest Close:</strong> ${latestClose?.toFixed(2)}<br/>
@@ -112,29 +177,65 @@ const App = () => {
                         {percentChange >= 0 ? '+' : ''}{percentChange}%
                       </span>
                     </p>
-                    <p>
-                      The price of {ticker} was ${previousClose?.toFixed(2)} {timeframe} ago and is currently ${latestClose?.toFixed(2)}, denoting a {percentChange >= 0 ? '+' : ''}{percentChange}% change.
+                    <p className="price-summary-human">
+                      On {formatDate(previousDate) || '(date unavailable)'}, {ticker} closed at ${previousClose?.toFixed(2)}.<br/>
+                      As of {formatDate(latestDate) || '(date unavailable)'}, it is ${latestClose?.toFixed(2)}, a {percentChange >= 0 ? '+' : ''}{percentChange}% change.
                     </p>
                   </div>
                 </div>
               )}
+              <div className="vertical-divider" />
               {headlines && (
-                <div className="result-card">
-                  <h3>Recent Headlines</h3>
+                <div className="result-card section-card" id="headlines">
+                  <h3><span role="img" aria-label="news">📰</span> Recent Headlines</h3>
                   <div className="result-content">
-                    {headlines.split('\n').map((line, index) => (
-                      <p key={index}>{line}</p>
+                    {headlines.split('\n').slice(0, 5).map((line, index) => (
+                      <p key={index}>{line.replace(/^•\s*/, '')}</p>
                     ))}
                   </div>
                 </div>
               )}
             </div>
-            {(summary || analysis) && (
-              <div className="result-card full-width">
-                <h3>AI Analysis</h3>
+            {(signalBullets && signalBullets.length > 0) || companySummary || macroSummary ? (
+              <div className="result-card full-width section-card" id="ai-analysis">
+                <h3><span role="img" aria-label="ai">🤖</span> AI Analysis</h3>
                 <div className="result-content">
-                  {summary && <p>{summary}</p>}
-                  {analysis && <p>{analysis}</p>}
+                  {signalBullets && signalBullets.length > 0 && (
+                    <ul className="ai-bullets" style={{ listStyle: 'none', paddingLeft: 0, margin: 0 }}>
+                      {signalBullets.slice(0, 2).map((b, i) => (
+                        <li key={i} style={{ marginBottom: '1em', fontSize: '1.08rem', lineHeight: 1.5, fontWeight: 600, color: '#2c3e50' }}>{b}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {companySummary && (
+                    <div style={{ margin: '1em 0 0 0', fontWeight: 500, color: '#222' }}>
+                      <strong>Company Summary</strong>
+                      <ul style={{ margin: '0.5em 0 0 1.5em', padding: 0 }}>
+                        {companySummary.split(/\n|•/).map((item, idx) => {
+                          const trimmed = item.trim().replace(/^\*+|\*+$/g, '');
+                          return trimmed ? <li key={idx} style={{ marginBottom: '0.5em' }}>{trimmed}</li> : null;
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                  {macroSummary && (
+                    <div style={{ margin: '1em 0 0 0', fontWeight: 500, color: '#222' }}>
+                      <strong>Macro Summary</strong>
+                      <ul style={{ margin: '0.5em 0 0 1.5em', padding: 0 }}>
+                        {macroSummary.split(/\n|•/).map((item, idx) => {
+                          const trimmed = item.trim().replace(/^\*+|\*+$/g, '');
+                          return trimmed ? <li key={idx} style={{ marginBottom: '0.5em' }}>{trimmed}</li> : null;
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="result-card full-width section-card" id="ai-analysis">
+                <h3><span role="img" aria-label="ai">🤖</span> AI Analysis</h3>
+                <div className="result-content">
+                  <p style={{ color: '#b00', fontWeight: 500 }}>AI analysis unavailable. (Invalid LLM output)</p>
                 </div>
               </div>
             )}
