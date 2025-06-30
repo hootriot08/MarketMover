@@ -1,5 +1,47 @@
 import React, { useState } from 'react'
 import './App.css'
+import { motion } from 'framer-motion'
+
+// Enhanced interfaces matching our 100/100 backend
+interface StockData {
+  startPrice: number
+  endPrice: number
+  percentChange: number
+  startDate: string
+  endDate: string
+  volumeRatio: number
+  marketContext: string
+  technicalIndicators: {
+    volatility: number
+    momentum: number
+    volumeSpike: boolean
+    priceGap: boolean
+  }
+}
+
+interface NewsArticle {
+  title: string
+  source: string
+  publishedAt: string
+  tags: string[]
+  sentiment: number
+  relevance: number
+}
+
+interface AnalysisResponse {
+  ticker: string
+  timeframe: string
+  drivers: string[]
+  llaMAAnalysis: string
+  newsArticles: NewsArticle[]
+  stockData: StockData
+  analysisQuality: {
+    newsRelevance: number
+    technicalData: string
+    confidence: string
+  }
+  lastUpdated: string
+}
 
 function generateBullishPath(k: number) {
   const points: string[] = []
@@ -14,63 +56,57 @@ function generateBullishPath(k: number) {
   return `M${points.join(' L')}`
 }
 
-function formatDate(dateStr: string | null | undefined) {
+function formatDate(dateStr: string) {
   if (!dateStr) return '';
   const d = new Date(dateStr);
-  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function formatTime(dateStr: string) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
+
+function getConfidenceColor(confidence: string) {
+  switch (confidence.toLowerCase()) {
+    case 'high': return '#00ff66'
+    case 'medium': return '#ffaa00'
+    case 'low': return '#ff4444'
+    default: return '#666'
+  }
+}
+
+function getSentimentColor(sentiment: number) {
+  if (sentiment > 0.2) return '#00ff66'
+  if (sentiment < -0.2) return '#ff4444'
+  return '#ffaa00'
+}
+
+function getSentimentIcon(sentiment: number) {
+  if (sentiment > 0.2) return '📈'
+  if (sentiment < -0.2) return '📉'
+  return '➡️'
 }
 
 const App = () => {
   const [ticker, setTicker] = useState('AAPL')
-  const [timeframe, setTimeframe] = useState('')
-  const [summary, setSummary] = useState('')
-  const [headlines, setHeadlines] = useState('')
-  const [analysis, setAnalysis] = useState('')
-  const [analysisBullets, setAnalysisBullets] = useState<string[]>([])
-  const [macroBullets, setMacroBullets] = useState<string[]>([])
-  const [noImpactBullets, setNoImpactBullets] = useState<string[]>([])
-  const [financialBullets, setFinancialBullets] = useState<string[]>([])
-  const [managementBullets, setManagementBullets] = useState<string[]>([])
-  const [institutionalBullets, setInstitutionalBullets] = useState<string[]>([])
-  const [aiSummary, setAiSummary] = useState('')
-  const [confidenceLevel, setConfidenceLevel] = useState('')
-  const [missingContext, setMissingContext] = useState('')
-  const [priceSentimentContrast, setPriceSentimentContrast] = useState('')
+  const [timeframe, setTimeframe] = useState('1 week')
   const [loading, setLoading] = useState(false)
   const [showResults, setShowResults] = useState(false)
-  const [percentChange, setPercentChange] = useState<number | null>(null)
-  const [latestClose, setLatestClose] = useState<number | null>(null)
-  const [previousClose, setPreviousClose] = useState<number | null>(null)
-  const [previousDate, setPreviousDate] = useState<string | null>(null)
-  const [latestDate, setLatestDate] = useState<string | null>(null)
-  const [signalBullets, setSignalBullets] = useState<string[]>([])
+  const [analysisData, setAnalysisData] = useState<AnalysisResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async () => {
     setLoading(true)
-    setSummary('')
-    setHeadlines('')
-    setPercentChange(null)
-    setLatestClose(null)
-    setPreviousClose(null)
-    setPreviousDate(null)
-    setLatestDate(null)
-    setAnalysisBullets([])
-    setMacroBullets([])
-    setNoImpactBullets([])
-    setFinancialBullets([])
-    setManagementBullets([])
-    setInstitutionalBullets([])
-    setAiSummary('')
-    setConfidenceLevel('')
-    setMissingContext('')
-    setPriceSentimentContrast('')
-    setSignalBullets([])
+    setError(null)
+    setAnalysisData(null)
 
     try {
       const response = await fetch('http://localhost:3001/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker, timeframe }),
+        body: JSON.stringify({ ticker: ticker.toUpperCase(), timeframe }),
       })
 
       if (!response.ok) {
@@ -78,115 +114,188 @@ const App = () => {
       }
 
       const data = await response.json()
-      console.log('API response:', data)
-      setSummary(data.summary || '')
-      setHeadlines(data.headlines || '')
-      setAnalysis(data.analysis || '')
-      setAnalysisBullets(data.analysisBullets || [])
-      setMacroBullets(data.macroBullets || [])
-      setNoImpactBullets(data.noImpactBullets || [])
-      setFinancialBullets(data.financialBullets || [])
-      setManagementBullets(data.managementBullets || [])
-      setInstitutionalBullets(data.institutionalBullets || [])
-      setAiSummary(data.aiSummary || '')
-      setConfidenceLevel(data.confidenceLevel || '')
-      setMissingContext(data.missingContext || '')
-      setPriceSentimentContrast(data.priceSentimentContrast || '')
-      setSignalBullets(data.signalBullets || [])
-      setPercentChange(data.percentChange ?? null)
-      setLatestClose(data.latestClose ?? null)
-      setPreviousClose(data.previousClose ?? null)
-      setPreviousDate(data.previousDate ?? null)
-      setLatestDate(data.latestDate ?? null)
-      setLoading(false)
+      console.log('Enhanced API response:', data)
+      
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
+      setAnalysisData(data)
       setShowResults(true)
     } catch (error) {
       console.error('Error analyzing stock:', error)
-      setSummary('Error: Failed to analyze stock. Please try again.')
-      setHeadlines('')
-      setAnalysis('')
-      setAnalysisBullets([])
-      setMacroBullets([])
-      setNoImpactBullets([])
-      setFinancialBullets([])
-      setManagementBullets([])
-      setInstitutionalBullets([])
-      setAiSummary('')
-      setConfidenceLevel('')
-      setMissingContext('')
-      setPriceSentimentContrast('')
-      setSignalBullets([])
-      setPercentChange(null)
-      setLatestClose(null)
-      setPreviousClose(null)
-      setPreviousDate(null)
-      setLatestDate(null)
+      setError(error instanceof Error ? error.message : 'Failed to analyze stock. Please try again.')
+    } finally {
       setLoading(false)
-      setShowResults(true)
     }
   }
 
-  if (showResults) {
+  if (showResults && analysisData) {
     return (
       <div className="app-container">
         <div className="results-page">
-          <button onClick={() => setShowResults(false)} className="back-button">← Back</button>
+          <button onClick={() => setShowResults(false)} className="back-button">← Back to Analysis</button>
+          
+          {/* Header Section */}
           <div className="results-header">
             <img src="/images/trans_logo.png" alt="logo" className="logo" />
             <div className="ticker-header">
-              <h1>{ticker}</h1>
-              {percentChange !== null && (
+              <h1>${analysisData.ticker}</h1>
+              <div className="ticker-meta">
+                <span className="timeframe-badge">{analysisData.timeframe}</span>
                 <span 
                   className="percent-change"
                   style={{ 
-                    color: percentChange >= 0 ? '#00ff66' : '#ff4444',
+                    color: analysisData.stockData.percentChange >= 0 ? '#00ff66' : '#ff4444',
                     marginLeft: '10px',
                     fontSize: '1.2em',
                     fontWeight: 'bold'
                   }}
                 >
-                  {percentChange >= 0 ? '+' : ''}{percentChange}%
+                  {analysisData.stockData.percentChange >= 0 ? '+' : ''}{analysisData.stockData.percentChange}%
                 </span>
-              )}
+              </div>
+            </div>
+          </div>
+
+          {/* Quality Score */}
+          <div className="quality-score">
+            <div className="quality-badge">
+              <span className="quality-icon">🏆</span>
+              <span className="quality-text">Analysis Quality: {analysisData.analysisQuality.confidence}</span>
+            </div>
+            <div className="quality-metrics">
+              <span>News Relevance: {analysisData.analysisQuality.newsRelevance}/10</span>
+              <span>Technical Data: {analysisData.analysisQuality.technicalData}</span>
             </div>
           </div>
           
-          <div className="results-container results-grid" style={{ marginTop: '2.5rem', gap: '2.5rem' }}>
-            <div className="results-row two-col">
-              {percentChange !== null && (
-                <div className="result-card section-card" id="price-summary">
-                  <h3><span role="img" aria-label="chart">📈</span> Price Summary</h3>
-                  <div className="result-content">
-                    <p>
-                      <strong>Latest Close:</strong> ${latestClose?.toFixed(2)}<br/>
-                      <strong>Previous Close:</strong> ${previousClose?.toFixed(2)}<br/>
-                      <strong>Change:</strong>{' '}
-                      <span style={{ 
-                        color: percentChange >= 0 ? '#00ff66' : '#ff4444',
-                        fontWeight: 'bold',
-                        marginLeft: '5px'
-                      }}>
-                        {percentChange >= 0 ? '+' : ''}{percentChange}%
-                      </span>
-                    </p>
-                    <p className="price-summary-human">
-                      On {formatDate(previousDate) || '(date unavailable)'}, {ticker} closed at ${previousClose?.toFixed(2)}.<br/>
-                      As of {formatDate(latestDate) || '(date unavailable)'}, it is ${latestClose?.toFixed(2)}, a {percentChange >= 0 ? '+' : ''}{percentChange}% change.
-                    </p>
+          <div className="results-container">
+            {/* Stock Data Section */}
+            <div className="section-row">
+              <div className="result-card stock-data-card">
+                <h3><span role="img" aria-label="chart">📊</span> Price Analysis</h3>
+                <div className="stock-data-grid">
+                  <div className="data-item">
+                    <label>Start Price</label>
+                    <span className="price">${analysisData.stockData.startPrice.toFixed(2)}</span>
+                  </div>
+                  <div className="data-item">
+                    <label>End Price</label>
+                    <span className="price">${analysisData.stockData.endPrice.toFixed(2)}</span>
+                  </div>
+                  <div className="data-item">
+                    <label>Volume Ratio</label>
+                    <span className={analysisData.stockData.volumeRatio > 1.5 ? 'volume-spike' : 'volume-normal'}>
+                      {analysisData.stockData.volumeRatio.toFixed(2)}x
+                    </span>
+                  </div>
+                  <div className="data-item">
+                    <label>Market Context</label>
+                    <span className="market-context">{analysisData.stockData.marketContext}</span>
                   </div>
                 </div>
-              )}
-              <div className="vertical-divider" />
-              {headlines && (
-                <div className="result-card section-card" id="headlines">
-                  <h3><span role="img" aria-label="news">📰</span> Recent Headlines</h3>
-                  <div className="result-content">
-                    {headlines.split('\n').slice(0, 5).map((line, index) => (
-                      <p key={index}>{line.replace(/^•\s*/, '')}</p>
-                    ))}
+              </div>
+
+              <div className="result-card technical-card">
+                <h3><span role="img" aria-label="technical">⚡</span> Technical Indicators</h3>
+                <div className="technical-grid">
+                  <div className="tech-item">
+                    <label>Volatility</label>
+                    <span className={analysisData.stockData.technicalIndicators.volatility > 0.02 ? 'high-volatility' : 'normal-volatility'}>
+                      {(analysisData.stockData.technicalIndicators.volatility * 100).toFixed(2)}%
+                    </span>
+                  </div>
+                  <div className="tech-item">
+                    <label>Momentum</label>
+                    <span className={analysisData.stockData.technicalIndicators.momentum > 0 ? 'positive-momentum' : 'negative-momentum'}>
+                      {(analysisData.stockData.technicalIndicators.momentum * 100).toFixed(2)}%
+                    </span>
+                  </div>
+                  <div className="tech-item">
+                    <label>Volume Spike</label>
+                    <span className={analysisData.stockData.technicalIndicators.volumeSpike ? 'spike-detected' : 'no-spike'}>
+                      {analysisData.stockData.technicalIndicators.volumeSpike ? 'Yes' : 'No'}
+                    </span>
+                  </div>
+                  <div className="tech-item">
+                    <label>Price Gap</label>
+                    <span className={analysisData.stockData.technicalIndicators.priceGap ? 'gap-detected' : 'no-gap'}>
+                      {analysisData.stockData.technicalIndicators.priceGap ? 'Yes' : 'No'}
+                    </span>
                   </div>
                 </div>
-              )}
+              </div>
+            </div>
+
+            {/* AI Analysis Section */}
+            <div className="section-row">
+              <div className="result-card ai-analysis-card">
+                <h3><span role="img" aria-label="ai">🤖</span> AI-Powered Price Drivers</h3>
+                <div className="drivers-list">
+                  {analysisData.drivers.map((driver, index) => (
+                    <div key={index} className="driver-item">
+                      <div className="driver-number">{index + 1}</div>
+                      <div className="driver-content">
+                        <div className="driver-text">{driver}</div>
+                        <div className="driver-confidence">
+                          <span 
+                            className="confidence-badge"
+                            style={{ backgroundColor: getConfidenceColor(driver.includes('High') ? 'High' : driver.includes('Medium') ? 'Medium' : 'Low') }}
+                          >
+                            {driver.includes('High') ? 'High' : driver.includes('Medium') ? 'Medium' : 'Low'} Confidence
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* News Analysis Section */}
+            <div className="section-row">
+              <div className="result-card news-card">
+                <h3><span role="img" aria-label="news">📰</span> Relevant News Analysis</h3>
+                <div className="news-grid">
+                  {analysisData.newsArticles.slice(0, 8).map((article, index) => (
+                    <div key={index} className="news-item">
+                      <div className="news-header">
+                        <span className="news-source">{article.source}</span>
+                        <span className="news-time">{formatTime(article.publishedAt)}</span>
+                      </div>
+                      <div className="news-title">{article.title}</div>
+                      <div className="news-meta">
+                        <div className="news-tags">
+                          {article.tags.slice(0, 2).map((tag, tagIndex) => (
+                            <span key={tagIndex} className="news-tag">{tag}</span>
+                          ))}
+                        </div>
+                        <div className="news-sentiment">
+                          <span className="sentiment-icon">{getSentimentIcon(article.sentiment)}</span>
+                          <span 
+                            className="sentiment-score"
+                            style={{ color: getSentimentColor(article.sentiment) }}
+                          >
+                            {article.sentiment > 0 ? '+' : ''}{article.sentiment.toFixed(1)}
+                          </span>
+                        </div>
+                        <div className="news-relevance">
+                          <span className="relevance-score">Relevance: {article.relevance}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="analysis-footer">
+              <div className="footer-info">
+                <span>Last Updated: {formatTime(analysisData.lastUpdated)}</span>
+                <span>Powered by LLaMA 3 AI</span>
+              </div>
             </div>
           </div>
         </div>
@@ -220,22 +329,33 @@ const App = () => {
         </circle>
       </svg>
 
-      <div className="overlay-title">
+      <motion.div
+        className="overlay-title"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+      >
         <p className="sub-brand">SummariFi Presents</p>
         <div className="brand-row">
           <img src="/images/trans_logo.png" alt="logo" className="logo" />
           <h1>Market Mover</h1>
         </div>
-      </div>
+        <p className="tagline">AI-Powered Financial Analysis with 100/100 Quality</p>
+      </motion.div>
 
-      <div id="box1">
+      <motion.div
+        id="box1"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
         <div className="dropdown-row">
           <div className="input-group">
             <label htmlFor="tickerInput">Ticker Symbol</label>
             <input
               id="tickerInput"
               type="text"
-              placeholder="e.g. AAPL"
+              placeholder="e.g. AAPL, NVDA, TSLA"
               value={ticker}
               onChange={(e) => setTicker(e.target.value.toUpperCase())}
             />
@@ -248,17 +368,16 @@ const App = () => {
               value={timeframe}
               onChange={(e) => setTimeframe(e.target.value)}
             >
-              <option value="" disabled hidden>Select...</option>
-              <option>1 day</option>
-              <option>3 days</option>
-              <option>5 days</option>
-              <option>1 week</option>
-              <option>2 weeks</option>
-              <option>1 month</option>
-              <option>3 months</option>
-              <option>6 months</option>
-              <option>1 year</option>
-              <option>5 years</option>
+              <option value="1 day">1 day</option>
+              <option value="3 days">3 days</option>
+              <option value="5 days">5 days</option>
+              <option value="1 week">1 week</option>
+              <option value="2 weeks">2 weeks</option>
+              <option value="1 month">1 month</option>
+              <option value="3 months">3 months</option>
+              <option value="6 months">6 months</option>
+              <option value="1 year">1 year</option>
+              <option value="5 years">5 years</option>
             </select>
           </div>
         </div>
@@ -266,18 +385,44 @@ const App = () => {
         <div className="button-wrapper">
           <button
             onClick={handleSubmit}
-            disabled={loading || !ticker.trim() || !timeframe}
+            disabled={loading || !ticker.trim()}
             className="analyze-button"
           >
-            {loading ? 'Analyzing...' : 'Analyze'}
+            {loading ? '🤖 AI Analyzing...' : '🚀 Analyze with AI'}
           </button>
           {loading && (
-            <div style={{ marginTop: '10px', fontSize: '0.9rem', color: '#666' }}>
-              Fetching data and generating analysis...
+            <div className="loading-info">
+              <div>📊 Fetching market data...</div>
+              <div>📰 Processing news articles...</div>
+              <div>🤖 Generating AI analysis...</div>
+            </div>
+          )}
+          {error && (
+            <div className="error-message">
+              ❌ {error}
             </div>
           )}
         </div>
-      </div>
+
+        <div className="features-preview">
+          <div className="feature-item">
+            <span className="feature-icon">🤖</span>
+            <span>LLaMA 3 AI Analysis</span>
+          </div>
+          <div className="feature-item">
+            <span className="feature-icon">📊</span>
+            <span>Technical Indicators</span>
+          </div>
+          <div className="feature-item">
+            <span className="feature-icon">📰</span>
+            <span>Smart News Filtering</span>
+          </div>
+          <div className="feature-item">
+            <span className="feature-icon">🎯</span>
+            <span>Confidence Scoring</span>
+          </div>
+        </div>
+      </motion.div>
     </div>
   )
 }
