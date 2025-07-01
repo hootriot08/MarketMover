@@ -19,6 +19,13 @@ interface StockData {
   }
 }
 
+interface TechnicalIndicator {
+  name: string
+  value: string
+  trend?: 'Up' | 'Down' | 'Neutral'
+  signal?: 'Bullish' | 'Bearish' | 'Neutral' | 'High Volatility' | 'Low Volatility' | 'Strong Trend' | 'Weak Trend'
+}
+
 interface NewsArticle {
   title: string
   source: string
@@ -28,13 +35,23 @@ interface NewsArticle {
   relevance: number
 }
 
+interface Metadata {
+  name?: string
+  sector?: string
+  marketCap?: number
+  currency?: string
+}
+
 interface AnalysisResponse {
   ticker: string
+  assetType: 'stock' | 'etf' | 'crypto'
   timeframe: string
   drivers: string[]
   llaMAAnalysis: string
   newsArticles: NewsArticle[]
   stockData: StockData
+  technicalIndicators: TechnicalIndicator[]
+  metadata?: Metadata
   analysisQuality: {
     newsRelevance: number
     technicalData: string
@@ -89,6 +106,46 @@ function getSentimentIcon(sentiment: number) {
   return '➡️'
 }
 
+function getAssetTypeIcon(assetType: string) {
+  switch (assetType) {
+    case 'crypto': return '₿'
+    case 'etf': return '📊'
+    case 'stock': return '📈'
+    default: return '📈'
+  }
+}
+
+function getAssetTypeLabel(assetType: string) {
+  switch (assetType) {
+    case 'crypto': return 'Cryptocurrency'
+    case 'etf': return 'ETF'
+    case 'stock': return 'Stock'
+    default: return 'Asset'
+  }
+}
+
+function getTechnicalIndicatorColor(signal?: string): string {
+  switch (signal) {
+    case 'Bullish':
+    case 'Accumulation':
+    case 'Positive':
+    case 'Strong Trend':
+      return '#00ff66'
+    case 'Bearish':
+    case 'Distribution':
+    case 'Negative':
+      return '#ff4444'
+    case 'High Volatility':
+      return '#ffaa00'
+    case 'Low Volatility':
+      return '#888888'
+    case 'Weak Trend':
+      return '#888888'
+    default:
+      return '#ffffff'
+  }
+}
+
 const App = () => {
   const [ticker, setTicker] = useState('AAPL')
   const [timeframe, setTimeframe] = useState('1 week')
@@ -140,7 +197,14 @@ const App = () => {
           <div className="results-header">
             <img src="/images/trans_logo.png" alt="logo" className="logo" />
             <div className="ticker-header">
-              <h1>${analysisData.ticker}</h1>
+              <div className="ticker-title">
+                <span className="asset-icon">{getAssetTypeIcon(analysisData.assetType)}</span>
+                <h1>${analysisData.ticker}</h1>
+                <span className="asset-type-badge">{getAssetTypeLabel(analysisData.assetType)}</span>
+              </div>
+              {analysisData.metadata?.name && (
+                <div className="asset-name">{analysisData.metadata.name}</div>
+              )}
               <div className="ticker-meta">
                 <span className="timeframe-badge">{analysisData.timeframe}</span>
                 <span 
@@ -200,30 +264,22 @@ const App = () => {
               <div className="result-card technical-card">
                 <h3><span role="img" aria-label="technical">⚡</span> Technical Indicators</h3>
                 <div className="technical-grid">
-                  <div className="tech-item">
-                    <label>Volatility</label>
-                    <span className={analysisData.stockData.technicalIndicators.volatility > 0.02 ? 'high-volatility' : 'normal-volatility'}>
-                      {(analysisData.stockData.technicalIndicators.volatility * 100).toFixed(2)}%
-                    </span>
-                  </div>
-                  <div className="tech-item">
-                    <label>Momentum</label>
-                    <span className={analysisData.stockData.technicalIndicators.momentum > 0 ? 'positive-momentum' : 'negative-momentum'}>
-                      {(analysisData.stockData.technicalIndicators.momentum * 100).toFixed(2)}%
-                    </span>
-                  </div>
-                  <div className="tech-item">
-                    <label>Volume Spike</label>
-                    <span className={analysisData.stockData.technicalIndicators.volumeSpike ? 'spike-detected' : 'no-spike'}>
-                      {analysisData.stockData.technicalIndicators.volumeSpike ? 'Yes' : 'No'}
-                    </span>
-                  </div>
-                  <div className="tech-item">
-                    <label>Price Gap</label>
-                    <span className={analysisData.stockData.technicalIndicators.priceGap ? 'gap-detected' : 'no-gap'}>
-                      {analysisData.stockData.technicalIndicators.priceGap ? 'Yes' : 'No'}
-                    </span>
-                  </div>
+                  {analysisData.technicalIndicators.map((indicator, index) => (
+                    <div key={index} className="tech-item">
+                      <label>{indicator.name}</label>
+                      <span 
+                        className="indicator-value"
+                        style={{ color: getTechnicalIndicatorColor(indicator.signal) }}
+                      >
+                        {indicator.value}
+                        {indicator.trend && (
+                          <span className="trend-arrow">
+                            {indicator.trend === 'Up' ? ' ↗' : indicator.trend === 'Down' ? ' ↘' : ''}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

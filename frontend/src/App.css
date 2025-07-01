@@ -290,6 +290,36 @@ body {
   color: var(--text-primary);
 }
 
+.ticker-title {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.asset-icon {
+  font-size: 2rem;
+  color: var(--primary-green);
+  filter: drop-shadow(0 0 10px var(--primary-green));
+}
+
+.asset-type-badge {
+  background: rgba(0, 255, 102, 0.1);
+  color: var(--primary-green);
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid rgba(0, 255, 102, 0.3);
+}
+
+.asset-name {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+  font-style: italic;
+}
+
 .ticker-meta {
   display: flex;
   align-items: center;
@@ -472,6 +502,24 @@ body {
   color: var(--text-secondary);
 }
 
+/* New Dynamic Technical Indicators */
+.indicator-value {
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.trend-arrow {
+  font-size: 0.9rem;
+  margin-left: 0.25rem;
+  opacity: 0.8;
+}
+
+.tech-item:hover .indicator-value {
+  transform: scale(1.05);
+  text-shadow: 0 0 10px currentColor;
+}
+
 /* AI Analysis Card */
 .ai-analysis-card {
   grid-column: 1 / -1;
@@ -523,7 +571,7 @@ body {
 }
 
 .confidence-badge {
-  color: white;
+  color: #111;
   padding: 0.25rem 0.75rem;
   border-radius: 15px;
   font-size: 0.75rem;
@@ -669,6 +717,15 @@ body {
   
   .ticker-header h1 {
     font-size: 2rem;
+  }
+  
+  .ticker-title {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .asset-icon {
+    font-size: 1.5rem;
   }
   
   .quality-score {
