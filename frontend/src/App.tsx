@@ -195,7 +195,7 @@ const App = () => {
           
           {/* Header Section */}
           <div className="results-header">
-            <img src="/images/trans_logo.png" alt="logo" className="logo" />
+            <img src="/assets/logo-DReZzkEE.png" alt="logo" className="logo" />
             <div className="ticker-header">
               <div className="ticker-title">
                 <span className="asset-icon">{getAssetTypeIcon(analysisData.assetType)}</span>
@@ -393,7 +393,7 @@ const App = () => {
       >
         <p className="sub-brand">SummariFi Presents</p>
         <div className="brand-row">
-          <img src="/images/trans_logo.png" alt="logo" className="logo" />
+          <img src="/assets/logo-DReZzkEE.png" alt="logo" className="logo" />
           <h1>Market Mover</h1>
         </div>
         <p className="tagline">AI-Powered Financial Analysis with 100/100 Quality</p>
