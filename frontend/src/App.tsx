@@ -160,7 +160,7 @@ const App = () => {
     setAnalysisData(null)
 
     try {
-      const response = await fetch('/api/analyze', {
+      const response = await fetch('https://marketmover-pwyap2h7c-hootriot08s-projects.vercel.app/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticker: ticker.toUpperCase(), timeframe }),
