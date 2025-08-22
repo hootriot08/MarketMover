@@ -7,7 +7,7 @@
 ## 🚀 Features
 
 ### 🤖 **AI-Powered Analysis**
-- **LLaMA 3 Integration**: Local AI analysis using Ollama
+- **Gemini AI Integration**: Cloud-based AI analysis using Google's Gemini API
 - **Smart Price Drivers**: AI-identified key factors affecting stock movement
 - **Confidence Scoring**: High/Medium/Low confidence levels for each analysis
 - **Professional Insights**: Institutional-quality financial analysis
@@ -44,7 +44,7 @@ Our system achieves perfect quality through:
 
 ### Prerequisites
 - Node.js 18+ and npm
-- Ollama (for LLaMA 3 AI)
+- Google AI API Key (for Gemini AI)
 
 ### Quick Start
 
@@ -55,13 +55,10 @@ cd marketmover
 npm install
 ```
 
-2. **Setup Ollama (AI Backend)**
+2. **Setup Google AI (AI Backend)**
 ```bash
-# Run the setup script
-./setup-ollama.sh
-
-# Or manually install Ollama and LLaMA 3
-ollama pull llama3.2:3b
+# The API key is already configured in the code
+# No additional setup required
 ```
 
 3. **Start Development Servers**
@@ -102,7 +99,7 @@ curl -X POST http://localhost:3001/analyze \
 ### Backend (Node.js + TypeScript)
 - **Enhanced Stock Data**: Yahoo Finance integration with technical indicators
 - **News Processing**: Smart filtering and sentiment analysis
-- **LLaMA 3 Integration**: Local AI analysis via Ollama
+- **Gemini AI Integration**: Cloud-based AI analysis via Google AI
 - **Quality Scoring**: Comprehensive analysis metrics
 
 ## 📊 Sample Analysis Output
@@ -158,7 +155,7 @@ marketmover/
 ### Key Technologies
 - **Frontend**: React 18, TypeScript, Vite
 - **Backend**: Node.js, TypeScript, Express
-- **AI**: Ollama, LLaMA 3.2
+- **AI**: Google Gemini API
 - **Data**: Yahoo Finance API, News APIs
 - **Styling**: CSS3 with modern design system
 
@@ -166,7 +163,7 @@ marketmover/
 
 - **Lightning Fast**: Sub-5 second analysis
 - **Real-time Data**: Live market information
-- **Local AI**: No external API dependencies
+- **Cloud AI**: Google Gemini API integration
 - **Responsive**: Works on all devices
 - **Scalable**: Handles high traffic loads
 

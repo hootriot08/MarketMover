@@ -11,6 +11,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@types/express": "^5.0.3",
     "@types/node": "^24.0.3",
     "axios": "^1.10.0",
@@ -18,7 +19,6 @@
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "node-readability": "^3.0.0",
-    "ollama": "^0.5.16",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
     "yahoo-finance2": "^2.13.3"

@@ -4,7 +4,7 @@ import bodyParser from 'body-parser'
 import type { Request, Response } from 'express'
 import axios from 'axios'
 import yahooFinance from 'yahoo-finance2'
-import { Ollama } from 'ollama'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 const { Readability } = require('node-readability')
 
 const app = express()
@@ -13,10 +13,8 @@ const port = 3001
 app.use(cors())
 app.use(bodyParser.json())
 
-// Initialize Ollama client
-const ollama = new Ollama({
-  host: 'http://localhost:11434'
-})
+// Initialize Google AI client
+const genAI = new GoogleGenerativeAI('AIzaSyCHhqlfqxa4N1OQzaIqc56TNtJqd6SAP40')
 
 // Timeframe-to-Indicator Mapping
 const timeframeIndicators = {
@@ -1237,8 +1235,8 @@ async function getFallbackNews(ticker: string): Promise<NewsArticle[]> {
   return fallbackArticles
 }
 
-// Generate enhanced LLaMA 3 prompt for financial analysis
-function generateLLaMAPrompt(stockData: StockData, newsArticles: NewsArticle[], timeframe: string, technicalIndicators: TechnicalIndicator[]): string {
+// Generate enhanced AI prompt for financial analysis
+function generateAIPrompt(stockData: StockData, newsArticles: NewsArticle[], timeframe: string, technicalIndicators: TechnicalIndicator[]): string {
   const startDate = new Date(stockData.startDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
   const endDate = new Date(stockData.endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
   const priceChange = `${stockData.percentChange > 0 ? '+' : ''}${stockData.percentChange}%`
@@ -1325,27 +1323,18 @@ Provide exactly 2-3 drivers in this format:
 Be specific, evidence-based, and professional. If the news doesn't clearly support a driver, don't include it. Focus on the most impactful factors for this specific timeframe.`
 }
 
-// Call LLaMA 3 for analysis
-async function getLLaMAAnalysis(prompt: string): Promise<string> {
+// Call Gemini for analysis
+async function getGeminiAnalysis(prompt: string): Promise<string> {
   try {
-    const response = await ollama.chat({
-      model: 'llama3',
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      options: {
-        temperature: 0.3,
-        top_p: 0.9
-      }
-    })
-
-    return response.message.content || 'Unable to generate analysis.'
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" })
+    
+    const result = await model.generateContent(prompt)
+    const response = await result.response
+    
+    return response.text() || 'Unable to generate analysis.'
   } catch (error) {
-    console.error('❌ LLaMA API error:', error)
-    return 'LLaMA analysis unavailable. Please check if Ollama is running with llama3 model.'
+    console.error('❌ Gemini API error:', error)
+    return 'Gemini analysis unavailable. Please check your API key and internet connection.'
   }
 }
 
@@ -1403,14 +1392,14 @@ app.post('/analyze', async (req: Request, res: Response): Promise<void> => {
     // Get enhanced news articles
     const newsArticles = await getEnhancedNews(ticker, stockData.startDate, stockData.endDate)
 
-    // Generate LLaMA prompt
-    const prompt = generateLLaMAPrompt(stockData, newsArticles, timeframe, technicalIndicators)
+    // Generate AI prompt
+    const prompt = generateAIPrompt(stockData, newsArticles, timeframe, technicalIndicators)
 
-    // Get LLaMA analysis
-    const llaMAAnalysis = await getLLaMAAnalysis(prompt)
+    // Get Gemini analysis
+    const geminiAnalysis = await getGeminiAnalysis(prompt)
 
-    // Parse and format drivers from LLaMA response
-    const drivers = llaMAAnalysis
+    // Parse and format drivers from Gemini response
+    const drivers = geminiAnalysis
       .split('\n')
       .filter(line => /^\d+\./.test(line.trim()))
       .map(line => line.trim().replace(/^\d+\.\s*/, ''))
@@ -1422,7 +1411,7 @@ app.post('/analyze', async (req: Request, res: Response): Promise<void> => {
       assetType: stockData.assetType,
       timeframe,
       drivers,
-      llaMAAnalysis,
+      geminiAnalysis: geminiAnalysis,
       newsArticles: newsArticles.map(article => ({
         title: article.title,
         source: article.source,
@@ -1498,7 +1487,7 @@ app.get('/health', (req: Request, res: Response) => {
 
 app.listen(port, () => {
   console.log(`✅ Server running at http://localhost:${port}`)
-  console.log('📊 Enhanced financial analysis with LLaMA 3 integration ready!')
+  console.log('📊 Enhanced financial analysis with Gemini AI integration ready!')
 })
 
 // Generate commentary for technical indicators

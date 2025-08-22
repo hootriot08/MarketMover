@@ -47,7 +47,7 @@ interface AnalysisResponse {
   assetType: 'stock' | 'etf' | 'crypto'
   timeframe: string
   drivers: string[]
-  llaMAAnalysis: string
+  geminiAnalysis: string
   newsArticles: NewsArticle[]
   stockData: StockData
   technicalIndicators: TechnicalIndicator[]
@@ -463,7 +463,7 @@ const App = () => {
         <div className="features-preview">
           <div className="feature-item">
             <span className="feature-icon">🤖</span>
-            <span>LLaMA 3 AI Analysis</span>
+            <span>Gemini AI Analysis</span>
           </div>
           <div className="feature-item">
             <span className="feature-icon">📊</span>
