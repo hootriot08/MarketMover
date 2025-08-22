@@ -1487,10 +1487,16 @@ app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() })
 })
 
-app.listen(port, () => {
-  console.log(`✅ Server running at http://localhost:${port}`)
-  console.log('📊 Enhanced financial analysis with Gemini AI integration ready!')
-})
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(port, () => {
+    console.log(`✅ Server running at http://localhost:${port}`)
+    console.log('📊 Enhanced financial analysis with Gemini AI integration ready!')
+  })
+}
+
+// Export for Vercel
+export default app
 
 // Generate commentary for technical indicators
 function generateIndicatorComment(indicatorName: string, value: number | string, signal: string): string {
