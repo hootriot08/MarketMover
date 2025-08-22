@@ -1495,6 +1495,11 @@ app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() })
 })
 
+// Simple test endpoint
+app.get('/test', (req: Request, res: Response) => {
+  res.json({ message: 'Backend is working!', timestamp: new Date().toISOString() })
+})
+
 // For local development
 if (process.env.NODE_ENV !== 'production') {
   app.listen(port, () => {
