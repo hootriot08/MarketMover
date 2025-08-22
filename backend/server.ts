@@ -11,12 +11,7 @@ const app = express()
 const port = 3001
 
 app.use(cors({
-  origin: [
-    'https://frontend-o40dhd4lu-hootriot08s-projects.vercel.app',
-    'https://frontend-p98kby79l-hootriot08s-projects.vercel.app',
-    'http://localhost:5173',
-    'http://localhost:3000'
-  ],
+  origin: true, // Allow all origins
   credentials: true
 }))
 app.use(bodyParser.json())
