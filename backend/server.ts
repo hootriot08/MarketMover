@@ -1273,6 +1273,8 @@ function generateAIPrompt(stockData: StockData, newsArticles: NewsArticle[], tim
 
   return `You are a ${role}. Your task is to provide a professional, evidence-based analysis of ${analysisType}.
 
+IMPORTANT: Keep all explanations concise and to the point. Each driver should be 1-2 sentences maximum.
+
 ${assetContext}
 Ticker: $${stockData.ticker}
 Timeframe: ${timeframe}
@@ -1293,11 +1295,11 @@ ${headlinesSection}
 
 ANALYSIS REQUIREMENTS:
 1. Identify exactly 2-3 drivers that most likely caused this price movement
-2. ${newsArticles.length > 0 ? 'Each driver must be supported by specific evidence from the news articles' : 'Focus on technical analysis and market context when news is limited'}
+2. ${newsArticles.length > 0 ? 'Each driver must be supported by key evidence from the news articles' : 'Focus on technical analysis and market context when news is limited'}
 3. Consider the magnitude and direction of the price change
 4. Account for technical indicators (volume, volatility, momentum)
 5. Avoid contradictory explanations
-6. Be specific and actionable
+6. Be specific, actionable, and CONCISE (1-2 sentences per driver)
 
 DRIVER CATEGORIES (use exactly one of these):
 ${stockData.assetType === 'crypto' ? `
@@ -1316,11 +1318,11 @@ ${stockData.assetType === 'crypto' ? `
 OUTPUT FORMAT:
 Provide exactly 2-3 drivers in this format:
 
-1. [Driver Category] — [Specific explanation with evidence from news articles] (Confidence: High/Medium/Low)
-2. [Driver Category] — [Specific explanation with evidence from news articles] (Confidence: High/Medium/Low)
-3. [Driver Category] — [Specific explanation with evidence from news articles] (Confidence: High/Medium/Low)
+1. [Driver Category] — [Concise explanation with key evidence] (Confidence: High/Medium/Low)
+2. [Driver Category] — [Concise explanation with key evidence] (Confidence: High/Medium/Low)
+3. [Driver Category] — [Concise explanation with key evidence] (Confidence: High/Medium/Low)
 
-Be specific, evidence-based, and professional. If the news doesn't clearly support a driver, don't include it. Focus on the most impactful factors for this specific timeframe.`
+IMPORTANT: Keep each driver explanation to 1-2 sentences maximum. Be specific but concise. Focus on the most impactful factors for this specific timeframe.`
 }
 
 // Call Gemini for analysis

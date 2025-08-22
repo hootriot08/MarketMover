@@ -1,4 +1,13 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -8,18 +17,14 @@ const cors_1 = __importDefault(require("cors"));
 const body_parser_1 = __importDefault(require("body-parser"));
 const axios_1 = __importDefault(require("axios"));
 const yahoo_finance2_1 = __importDefault(require("yahoo-finance2"));
-const ai_service_1 = __importDefault(require("./ai-service"));
+const generative_ai_1 = require("@google/generative-ai");
 const { Readability } = require('node-readability');
 const app = (0, express_1.default)();
-const port = process.env.PORT || 3001;
+const port = 3001;
 app.use((0, cors_1.default)());
 app.use(body_parser_1.default.json());
-// Initialize AI service
-const aiService = new ai_service_1.default();
-// Root endpoint for Railway health check
-app.get('/', (req, res) => {
-    res.json({ status: 'OK', message: 'MarketMover API is running', timestamp: new Date().toISOString() });
-});
+// Initialize Google AI client
+const genAI = new generative_ai_1.GoogleGenerativeAI('AIzaSyCHhqlfqxa4N1OQzaIqc56TNtJqd6SAP40');
 // Timeframe-to-Indicator Mapping
 const timeframeIndicators = {
     "1 day": ["VWAP", "Bollinger Bands", "MACD", "Volume Spike"],
@@ -34,39 +39,42 @@ const timeframeIndicators = {
     "5 years": ["SMA(200)", "MACD", "SuperTrend", "Heikin Ashi"]
 };
 // Ticker validation function with better error handling
-async function validateTicker(ticker) {
-    const upperTicker = ticker.toUpperCase();
-    // Common crypto tickers
-    const cryptoList = ['BTC', 'ETH', 'USDT', 'USDC', 'BNB', 'XRP', 'ADA', 'SOL', 'DOT', 'DOGE', 'AVAX', 'MATIC', 'LINK', 'UNI', 'ATOM', 'LTC', 'BCH', 'XLM', 'VET', 'FIL'];
-    if (cryptoList.includes(upperTicker)) {
-        return { isValid: true, assetType: 'crypto', name: getCryptoName(upperTicker) };
-    }
-    // Add retry logic for Yahoo Finance
-    for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-            // Try to get basic info from Yahoo Finance
-            const quote = await yahoo_finance2_1.default.quote(upperTicker);
-            if (quote && quote.regularMarketPrice) {
-                const assetType = quote.quoteType === 'ETF' ? 'etf' : 'stock';
-                return { isValid: true, assetType, name: quote.longName || quote.shortName };
-            }
+function validateTicker(ticker) {
+    return __awaiter(this, void 0, void 0, function* () {
+        var _a, _b;
+        const upperTicker = ticker.toUpperCase();
+        // Common crypto tickers
+        const cryptoList = ['BTC', 'ETH', 'USDT', 'USDC', 'BNB', 'XRP', 'ADA', 'SOL', 'DOT', 'DOGE', 'AVAX', 'MATIC', 'LINK', 'UNI', 'ATOM', 'LTC', 'BCH', 'XLM', 'VET', 'FIL'];
+        if (cryptoList.includes(upperTicker)) {
+            return { isValid: true, assetType: 'crypto', name: getCryptoName(upperTicker) };
         }
-        catch (error) {
-            console.log(`❌ Ticker validation attempt ${attempt} failed for ${upperTicker}:`, error.message);
-            if (attempt === 3) {
-                // On final attempt, if it's a DNS error, we'll assume it's a valid ticker and let the data fetching handle it
-                if (error.message?.includes('ENOTFOUND') || error.message?.includes('getaddrinfo')) {
-                    console.log(`⚠️ DNS issue with Yahoo Finance, assuming ${upperTicker} is valid`);
-                    return { isValid: true, assetType: 'stock', name: upperTicker };
+        // Add retry logic for Yahoo Finance
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                // Try to get basic info from Yahoo Finance
+                const quote = yield yahoo_finance2_1.default.quote(upperTicker);
+                if (quote && quote.regularMarketPrice) {
+                    const assetType = quote.quoteType === 'ETF' ? 'etf' : 'stock';
+                    return { isValid: true, assetType, name: quote.longName || quote.shortName };
                 }
             }
-            // Wait before retry
-            if (attempt < 3) {
-                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            catch (error) {
+                console.log(`❌ Ticker validation attempt ${attempt} failed for ${upperTicker}:`, error.message);
+                if (attempt === 3) {
+                    // On final attempt, if it's a DNS error, we'll assume it's a valid ticker and let the data fetching handle it
+                    if (((_a = error.message) === null || _a === void 0 ? void 0 : _a.includes('ENOTFOUND')) || ((_b = error.message) === null || _b === void 0 ? void 0 : _b.includes('getaddrinfo'))) {
+                        console.log(`⚠️ DNS issue with Yahoo Finance, assuming ${upperTicker} is valid`);
+                        return { isValid: true, assetType: 'stock', name: upperTicker };
+                    }
+                }
+                // Wait before retry
+                if (attempt < 3) {
+                    yield new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                }
             }
         }
-    }
-    return { isValid: false, assetType: 'stock' };
+        return { isValid: false, assetType: 'stock' };
+    });
 }
 // Helper function to get crypto names
 function getCryptoName(ticker) {
@@ -463,595 +471,611 @@ function calculateHeikinAshi(priceHistory) {
     return currentPrice > prevPrice ? 1 : -1;
 }
 // Enhanced function to get crypto data from CoinGecko
-async function getCryptoData(ticker, timeframe) {
-    try {
-        const timeframeMap = {
-            '1 day': 1,
-            '3 days': 3,
-            '5 days': 5,
-            '1 week': 7,
-            '2 weeks': 14,
-            '1 month': 30,
-            '3 months': 90,
-            '6 months': 180,
-            '1 year': 365,
-            '5 years': 1825
-        };
-        const days = timeframeMap[timeframe] || 7;
-        // Map ticker to CoinGecko ID
-        const tickerToId = {
-            'BTC': 'bitcoin',
-            'ETH': 'ethereum',
-            'USDT': 'tether',
-            'USDC': 'usd-coin',
-            'BNB': 'binancecoin',
-            'XRP': 'ripple',
-            'ADA': 'cardano',
-            'SOL': 'solana',
-            'DOT': 'polkadot',
-            'DOGE': 'dogecoin',
-            'AVAX': 'avalanche-2',
-            'MATIC': 'matic-network',
-            'LINK': 'chainlink',
-            'UNI': 'uniswap',
-            'ATOM': 'cosmos',
-            'LTC': 'litecoin',
-            'BCH': 'bitcoin-cash',
-            'XLM': 'stellar',
-            'VET': 'vechain',
-            'FIL': 'filecoin'
-        };
-        const coinId = tickerToId[ticker];
-        if (!coinId) {
-            console.log(`❌ Unsupported crypto ticker: ${ticker}`);
-            return null;
-        }
-        // Fetch data from CoinGecko with retry logic
-        const url = `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=${days}&interval=daily`;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-                const response = await axios_1.default.get(url, {
-                    timeout: 10000,
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (compatible; MarketMover/1.0)'
-                    }
-                });
-                // Check for rate limit error
-                if (response.status === 429) {
-                    const retryAfter = response.headers['retry-after'] ? parseInt(response.headers['retry-after']) : 60;
-                    console.log(`⚠️ CoinGecko rate limit hit for ${ticker}, waiting ${retryAfter}s before retry ${attempt}`);
-                    if (attempt < 3) {
-                        await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
-                        continue;
-                    }
-                    else {
-                        console.log(`🔄 Using fallback crypto data for ${ticker} after rate limit`);
-                        return await getCryptoFallbackData(ticker, timeframe);
-                    }
-                }
-                if (response.status === 401) {
-                    console.log(`⚠️ CoinGecko unauthorized for ${ticker}, using fallback data`);
-                    return await getCryptoFallbackData(ticker, timeframe);
-                }
-                const { prices, total_volumes } = response.data;
-                if (!prices || prices.length < 2) {
-                    console.log(`❌ Insufficient crypto data for ${ticker}`);
-                    return await getCryptoFallbackData(ticker, timeframe);
-                }
-                // Calculate metrics
-                const startPrice = prices[0][1];
-                const endPrice = prices[prices.length - 1][1];
-                const percentChange = ((endPrice - startPrice) / startPrice) * 100;
-                // Volume analysis
-                const volumes = total_volumes.map((v) => v[1]).filter((v) => v > 0);
-                const averageVolume = volumes.length > 0 ? volumes.reduce((a, b) => a + b, 0) / volumes.length : 0;
-                const actualVolume = volumes[volumes.length - 1] || 0;
-                const volumeRatio = averageVolume > 0 ? actualVolume / averageVolume : 1;
-                // Technical indicators
-                const priceValues = prices.map((p) => p[1]);
-                const returns = priceValues.slice(1).map((price, i) => (price - priceValues[i]) / priceValues[i]);
-                const volatility = returns.length > 0 ? Math.sqrt(returns.reduce((sum, ret) => sum + ret * ret, 0) / returns.length) : 0;
-                const momentum = returns.length > 0 ? returns.reduce((sum, ret) => sum + ret, 0) : 0;
-                const volumeSpike = volumeRatio > 1.5;
-                const priceGap = Math.abs(percentChange) > 5;
-                // Get metadata with fallback
-                let metadata = { name: getCryptoName(ticker), sector: 'Cryptocurrency', marketCap: undefined, currency: 'USD' };
+function getCryptoData(ticker, timeframe) {
+    return __awaiter(this, void 0, void 0, function* () {
+        var _a, _b;
+        try {
+            const timeframeMap = {
+                '1 day': 1,
+                '3 days': 3,
+                '5 days': 5,
+                '1 week': 7,
+                '2 weeks': 14,
+                '1 month': 30,
+                '3 months': 90,
+                '6 months': 180,
+                '1 year': 365,
+                '5 years': 1825
+            };
+            const days = timeframeMap[timeframe] || 7;
+            // Map ticker to CoinGecko ID
+            const tickerToId = {
+                'BTC': 'bitcoin',
+                'ETH': 'ethereum',
+                'USDT': 'tether',
+                'USDC': 'usd-coin',
+                'BNB': 'binancecoin',
+                'XRP': 'ripple',
+                'ADA': 'cardano',
+                'SOL': 'solana',
+                'DOT': 'polkadot',
+                'DOGE': 'dogecoin',
+                'AVAX': 'avalanche-2',
+                'MATIC': 'matic-network',
+                'LINK': 'chainlink',
+                'UNI': 'uniswap',
+                'ATOM': 'cosmos',
+                'LTC': 'litecoin',
+                'BCH': 'bitcoin-cash',
+                'XLM': 'stellar',
+                'VET': 'vechain',
+                'FIL': 'filecoin'
+            };
+            const coinId = tickerToId[ticker];
+            if (!coinId) {
+                console.log(`❌ Unsupported crypto ticker: ${ticker}`);
+                return null;
+            }
+            // Fetch data from CoinGecko with retry logic
+            const url = `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=${days}&interval=daily`;
+            for (let attempt = 1; attempt <= 3; attempt++) {
                 try {
-                    const metadataResponse = await axios_1.default.get(`https://api.coingecko.com/api/v3/coins/${coinId}`, {
-                        timeout: 5000,
+                    const response = yield axios_1.default.get(url, {
+                        timeout: 10000,
                         headers: {
                             'User-Agent': 'Mozilla/5.0 (compatible; MarketMover/1.0)'
                         }
                     });
-                    const metadataData = metadataResponse.data;
-                    metadata = {
-                        name: metadataData.name || getCryptoName(ticker),
-                        sector: 'Cryptocurrency',
-                        marketCap: metadataData.market_data?.market_cap?.usd,
-                        currency: 'USD'
+                    // Check for rate limit error
+                    if (response.status === 429) {
+                        const retryAfter = response.headers['retry-after'] ? parseInt(response.headers['retry-after']) : 60;
+                        console.log(`⚠️ CoinGecko rate limit hit for ${ticker}, waiting ${retryAfter}s before retry ${attempt}`);
+                        if (attempt < 3) {
+                            yield new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+                            continue;
+                        }
+                        else {
+                            console.log(`🔄 Using fallback crypto data for ${ticker} after rate limit`);
+                            return yield getCryptoFallbackData(ticker, timeframe);
+                        }
+                    }
+                    if (response.status === 401) {
+                        console.log(`⚠️ CoinGecko unauthorized for ${ticker}, using fallback data`);
+                        return yield getCryptoFallbackData(ticker, timeframe);
+                    }
+                    const { prices, total_volumes } = response.data;
+                    if (!prices || prices.length < 2) {
+                        console.log(`❌ Insufficient crypto data for ${ticker}`);
+                        return yield getCryptoFallbackData(ticker, timeframe);
+                    }
+                    // Calculate metrics
+                    const startPrice = prices[0][1];
+                    const endPrice = prices[prices.length - 1][1];
+                    const percentChange = ((endPrice - startPrice) / startPrice) * 100;
+                    // Volume analysis
+                    const volumes = total_volumes.map((v) => v[1]).filter((v) => v > 0);
+                    const averageVolume = volumes.length > 0 ? volumes.reduce((a, b) => a + b, 0) / volumes.length : 0;
+                    const actualVolume = volumes[volumes.length - 1] || 0;
+                    const volumeRatio = averageVolume > 0 ? actualVolume / averageVolume : 1;
+                    // Technical indicators
+                    const priceValues = prices.map((p) => p[1]);
+                    const returns = priceValues.slice(1).map((price, i) => (price - priceValues[i]) / priceValues[i]);
+                    const volatility = returns.length > 0 ? Math.sqrt(returns.reduce((sum, ret) => sum + ret * ret, 0) / returns.length) : 0;
+                    const momentum = returns.length > 0 ? returns.reduce((sum, ret) => sum + ret, 0) : 0;
+                    const volumeSpike = volumeRatio > 1.5;
+                    const priceGap = Math.abs(percentChange) > 5;
+                    // Get metadata with fallback
+                    let metadata = { name: getCryptoName(ticker), sector: 'Cryptocurrency', marketCap: undefined, currency: 'USD' };
+                    try {
+                        const metadataResponse = yield axios_1.default.get(`https://api.coingecko.com/api/v3/coins/${coinId}`, {
+                            timeout: 5000,
+                            headers: {
+                                'User-Agent': 'Mozilla/5.0 (compatible; MarketMover/1.0)'
+                            }
+                        });
+                        const metadataData = metadataResponse.data;
+                        metadata = {
+                            name: metadataData.name || getCryptoName(ticker),
+                            sector: 'Cryptocurrency',
+                            marketCap: (_b = (_a = metadataData.market_data) === null || _a === void 0 ? void 0 : _a.market_cap) === null || _b === void 0 ? void 0 : _b.usd,
+                            currency: 'USD'
+                        };
+                    }
+                    catch (metadataError) {
+                        console.log(`⚠️ Could not fetch crypto metadata for ${ticker}, using defaults`);
+                    }
+                    return {
+                        ticker,
+                        assetType: 'crypto',
+                        startPrice,
+                        endPrice,
+                        percentChange: parseFloat(percentChange.toFixed(2)),
+                        startDate: new Date(prices[0][0]).toISOString(),
+                        endDate: new Date(prices[prices.length - 1][0]).toISOString(),
+                        averageVolume,
+                        actualVolume,
+                        volumeRatio,
+                        priceHistory: prices.map((p) => {
+                            var _a;
+                            return ({
+                                date: new Date(p[0]).toISOString(),
+                                close: p[1],
+                                volume: ((_a = total_volumes.find((v) => v[0] === p[0])) === null || _a === void 0 ? void 0 : _a[1]) || 0
+                            });
+                        }),
+                        technicalIndicators: {
+                            volatility: parseFloat(volatility.toFixed(4)),
+                            momentum: parseFloat(momentum.toFixed(4)),
+                            volumeSpike,
+                            priceGap
+                        },
+                        metadata
                     };
                 }
-                catch (metadataError) {
-                    console.log(`⚠️ Could not fetch crypto metadata for ${ticker}, using defaults`);
+                catch (error) {
+                    console.error(`❌ Error fetching crypto data for ${ticker} (attempt ${attempt}):`, error.message);
+                    if (attempt === 3) {
+                        return yield getCryptoFallbackData(ticker, timeframe);
+                    }
+                    // Wait before retry
+                    yield new Promise(resolve => setTimeout(resolve, 2000 * attempt));
                 }
-                return {
-                    ticker,
-                    assetType: 'crypto',
-                    startPrice,
-                    endPrice,
-                    percentChange: parseFloat(percentChange.toFixed(2)),
-                    startDate: new Date(prices[0][0]).toISOString(),
-                    endDate: new Date(prices[prices.length - 1][0]).toISOString(),
-                    averageVolume,
-                    actualVolume,
-                    volumeRatio,
-                    priceHistory: prices.map((p) => ({
-                        date: new Date(p[0]).toISOString(),
-                        close: p[1],
-                        volume: total_volumes.find((v) => v[0] === p[0])?.[1] || 0
-                    })),
-                    technicalIndicators: {
-                        volatility: parseFloat(volatility.toFixed(4)),
-                        momentum: parseFloat(momentum.toFixed(4)),
-                        volumeSpike,
-                        priceGap
-                    },
-                    metadata
-                };
             }
-            catch (error) {
-                console.error(`❌ Error fetching crypto data for ${ticker} (attempt ${attempt}):`, error.message);
-                if (attempt === 3) {
-                    return await getCryptoFallbackData(ticker, timeframe);
-                }
-                // Wait before retry
-                await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
-            }
+            return yield getCryptoFallbackData(ticker, timeframe);
         }
-        return await getCryptoFallbackData(ticker, timeframe);
-    }
-    catch (error) {
-        console.error(`❌ Error in getCryptoData for ${ticker}:`, error);
-        return await getCryptoFallbackData(ticker, timeframe);
-    }
+        catch (error) {
+            console.error(`❌ Error in getCryptoData for ${ticker}:`, error);
+            return yield getCryptoFallbackData(ticker, timeframe);
+        }
+    });
 }
 // Fallback crypto data function for when CoinGecko API fails
-async function getCryptoFallbackData(ticker, timeframe) {
-    console.log(`🔄 Using fallback crypto data for ${ticker}`);
-    try {
-        // Generate realistic fallback data based on current market conditions
-        const endDate = new Date();
-        const startDate = new Date();
-        // Adjust start date based on timeframe
-        const timeframeMap = {
-            '1 day': 1,
-            '3 days': 3,
-            '5 days': 5,
-            '1 week': 7,
-            '2 weeks': 14,
-            '1 month': 30,
-            '3 months': 90,
-            '6 months': 180,
-            '1 year': 365,
-            '5 years': 1825
-        };
-        const days = timeframeMap[timeframe] || 7;
-        startDate.setDate(endDate.getDate() - days);
-        // Generate realistic price data
-        const basePrice = ticker === 'BTC' ? 47000 : ticker === 'ETH' ? 3200 : 100;
-        const volatility = 0.02; // 2% daily volatility
-        const trend = Math.random() > 0.5 ? 1 : -1; // Random trend
-        const trendStrength = 0.001; // 0.1% daily trend
-        const startPrice = basePrice * (1 + (Math.random() - 0.5) * 0.1); // ±5% variation
-        const endPrice = startPrice * (1 + trend * trendStrength * days + (Math.random() - 0.5) * volatility * Math.sqrt(days));
-        const percentChange = ((endPrice - startPrice) / startPrice) * 100;
-        // Generate price history
-        const priceHistory = [];
-        for (let i = 0; i < days; i++) {
-            const date = new Date(startDate);
-            date.setDate(startDate.getDate() + i);
-            const price = startPrice * (1 + trend * trendStrength * i + (Math.random() - 0.5) * volatility * Math.sqrt(i + 1));
-            priceHistory.push({
-                date: date.toISOString(),
-                close: price,
-                volume: Math.random() * 1000000 + 500000 // Random volume
-            });
-        }
-        // Calculate technical indicators
-        const prices = priceHistory.map(p => p.close);
-        const returns = prices.slice(1).map((price, i) => (price - prices[i]) / prices[i]);
-        const calculatedVolatility = returns.length > 0 ? Math.sqrt(returns.reduce((sum, ret) => sum + ret * ret, 0) / returns.length) : volatility;
-        const momentum = returns.length > 0 ? returns.reduce((sum, ret) => sum + ret, 0) : 0;
-        const volumeRatio = 1.0 + (Math.random() - 0.5) * 0.5; // Random volume ratio
-        const volumeSpike = volumeRatio > 1.5;
-        const priceGap = Math.abs(percentChange) > 5;
-        return {
-            ticker,
-            assetType: 'crypto',
-            startPrice: parseFloat(startPrice.toFixed(2)),
-            endPrice: parseFloat(endPrice.toFixed(2)),
-            percentChange: parseFloat(percentChange.toFixed(2)),
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
-            averageVolume: 750000,
-            actualVolume: 750000 * volumeRatio,
-            volumeRatio,
-            priceHistory,
-            technicalIndicators: {
-                volatility: parseFloat(calculatedVolatility.toFixed(4)),
-                momentum: parseFloat(momentum.toFixed(4)),
-                volumeSpike,
-                priceGap
-            },
-            metadata: {
-                name: getCryptoName(ticker),
-                sector: 'Cryptocurrency',
-                marketCap: undefined,
-                currency: 'USD'
+function getCryptoFallbackData(ticker, timeframe) {
+    return __awaiter(this, void 0, void 0, function* () {
+        console.log(`🔄 Using fallback crypto data for ${ticker}`);
+        try {
+            // Generate realistic fallback data based on current market conditions
+            const endDate = new Date();
+            const startDate = new Date();
+            // Adjust start date based on timeframe
+            const timeframeMap = {
+                '1 day': 1,
+                '3 days': 3,
+                '5 days': 5,
+                '1 week': 7,
+                '2 weeks': 14,
+                '1 month': 30,
+                '3 months': 90,
+                '6 months': 180,
+                '1 year': 365,
+                '5 years': 1825
+            };
+            const days = timeframeMap[timeframe] || 7;
+            startDate.setDate(endDate.getDate() - days);
+            // Generate realistic price data
+            const basePrice = ticker === 'BTC' ? 47000 : ticker === 'ETH' ? 3200 : 100;
+            const volatility = 0.02; // 2% daily volatility
+            const trend = Math.random() > 0.5 ? 1 : -1; // Random trend
+            const trendStrength = 0.001; // 0.1% daily trend
+            const startPrice = basePrice * (1 + (Math.random() - 0.5) * 0.1); // ±5% variation
+            const endPrice = startPrice * (1 + trend * trendStrength * days + (Math.random() - 0.5) * volatility * Math.sqrt(days));
+            const percentChange = ((endPrice - startPrice) / startPrice) * 100;
+            // Generate price history
+            const priceHistory = [];
+            for (let i = 0; i < days; i++) {
+                const date = new Date(startDate);
+                date.setDate(startDate.getDate() + i);
+                const price = startPrice * (1 + trend * trendStrength * i + (Math.random() - 0.5) * volatility * Math.sqrt(i + 1));
+                priceHistory.push({
+                    date: date.toISOString(),
+                    close: price,
+                    volume: Math.random() * 1000000 + 500000 // Random volume
+                });
             }
-        };
-    }
-    catch (error) {
-        console.error(`❌ Error generating fallback crypto data for ${ticker}:`, error);
-        return null;
-    }
+            // Calculate technical indicators
+            const prices = priceHistory.map(p => p.close);
+            const returns = prices.slice(1).map((price, i) => (price - prices[i]) / prices[i]);
+            const calculatedVolatility = returns.length > 0 ? Math.sqrt(returns.reduce((sum, ret) => sum + ret * ret, 0) / returns.length) : volatility;
+            const momentum = returns.length > 0 ? returns.reduce((sum, ret) => sum + ret, 0) : 0;
+            const volumeRatio = 1.0 + (Math.random() - 0.5) * 0.5; // Random volume ratio
+            const volumeSpike = volumeRatio > 1.5;
+            const priceGap = Math.abs(percentChange) > 5;
+            return {
+                ticker,
+                assetType: 'crypto',
+                startPrice: parseFloat(startPrice.toFixed(2)),
+                endPrice: parseFloat(endPrice.toFixed(2)),
+                percentChange: parseFloat(percentChange.toFixed(2)),
+                startDate: startDate.toISOString(),
+                endDate: endDate.toISOString(),
+                averageVolume: 750000,
+                actualVolume: 750000 * volumeRatio,
+                volumeRatio,
+                priceHistory,
+                technicalIndicators: {
+                    volatility: parseFloat(calculatedVolatility.toFixed(4)),
+                    momentum: parseFloat(momentum.toFixed(4)),
+                    volumeSpike,
+                    priceGap
+                },
+                metadata: {
+                    name: getCryptoName(ticker),
+                    sector: 'Cryptocurrency',
+                    marketCap: undefined,
+                    currency: 'USD'
+                }
+            };
+        }
+        catch (error) {
+            console.error(`❌ Error generating fallback crypto data for ${ticker}:`, error);
+            return null;
+        }
+    });
 }
 // Enhanced function to get comprehensive stock data
-async function getEnhancedStockData(ticker, timeframe) {
-    try {
-        // First validate the ticker
-        const validation = await validateTicker(ticker);
-        if (!validation.isValid) {
-            console.log(`❌ Invalid ticker: ${ticker}`);
-            return null;
-        }
-        // Handle crypto separately
-        if (validation.assetType === 'crypto') {
-            return await getCryptoData(ticker, timeframe);
-        }
-        // Convert timeframe to days
-        const timeframeMap = {
-            '1 day': 1,
-            '3 days': 3,
-            '5 days': 5,
-            '1 week': 7,
-            '2 weeks': 14,
-            '1 month': 30,
-            '3 months': 90,
-            '6 months': 180,
-            '1 year': 365,
-            '5 years': 1825
-        };
-        const days = timeframeMap[timeframe] || 7;
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(endDate.getDate() - days);
-        console.log(`📊 Fetching data for ${ticker} over ${timeframe} (${days} days)`);
-        // Fetch historical data using yahoo-finance2 with retry logic
-        let results = null;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-                results = await yahoo_finance2_1.default.historical(ticker, {
-                    period1: startDate,
-                    period2: endDate,
-                    interval: '1d',
-                });
-                break; // Success, exit retry loop
+function getEnhancedStockData(ticker, timeframe) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            // First validate the ticker
+            const validation = yield validateTicker(ticker);
+            if (!validation.isValid) {
+                console.log(`❌ Invalid ticker: ${ticker}`);
+                return null;
             }
-            catch (error) {
-                console.log(`❌ Yahoo Finance attempt ${attempt} failed for ${ticker}:`, error.message);
-                if (attempt === 3) {
-                    console.log(`❌ All Yahoo Finance attempts failed for ${ticker}`);
-                    return null;
+            // Handle crypto separately
+            if (validation.assetType === 'crypto') {
+                return yield getCryptoData(ticker, timeframe);
+            }
+            // Convert timeframe to days
+            const timeframeMap = {
+                '1 day': 1,
+                '3 days': 3,
+                '5 days': 5,
+                '1 week': 7,
+                '2 weeks': 14,
+                '1 month': 30,
+                '3 months': 90,
+                '6 months': 180,
+                '1 year': 365,
+                '5 years': 1825
+            };
+            const days = timeframeMap[timeframe] || 7;
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(endDate.getDate() - days);
+            console.log(`📊 Fetching data for ${ticker} over ${timeframe} (${days} days)`);
+            // Fetch historical data using yahoo-finance2 with retry logic
+            let results = null;
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    results = yield yahoo_finance2_1.default.historical(ticker, {
+                        period1: startDate,
+                        period2: endDate,
+                        interval: '1d',
+                    });
+                    break; // Success, exit retry loop
                 }
-                // Wait before retry
-                await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
-            }
-        }
-        if (!results || results.length < 2) {
-            console.log(`❌ Insufficient data points for ${ticker}: ${results?.length || 0} points`);
-            return null;
-        }
-        console.log(`✅ Got ${results.length} data points for ${ticker}`);
-        // Calculate volume metrics
-        const volumes = results.map(r => r.volume || 0).filter(v => v > 0);
-        const averageVolume = volumes.length > 0 ? volumes.reduce((a, b) => a + b, 0) / volumes.length : 0;
-        const actualVolume = results[results.length - 1].volume || 0;
-        const volumeRatio = averageVolume > 0 ? actualVolume / averageVolume : 1;
-        // Data is sorted oldest first
-        const startPrice = results[0].close;
-        const endPrice = results[results.length - 1].close;
-        const startDateStr = results[0].date ? new Date(results[0].date).toISOString() : '';
-        const endDateStr = results[results.length - 1].date ? new Date(results[results.length - 1].date).toISOString() : '';
-        const percentChange = ((endPrice - startPrice) / startPrice) * 100;
-        const priceHistory = results.map(r => ({
-            date: r.date ? new Date(r.date).toISOString() : '',
-            close: r.close,
-            volume: r.volume || 0
-        }));
-        console.log(`📈 ${ticker}: $${startPrice.toFixed(2)} → $${endPrice.toFixed(2)} (${percentChange > 0 ? '+' : ''}${percentChange.toFixed(2)}%)`);
-        // Calculate technical indicators
-        const prices = results.map(r => r.close);
-        const returns = prices.slice(1).map((price, i) => (price - prices[i]) / prices[i]);
-        const volatility = returns.length > 0 ? Math.sqrt(returns.reduce((sum, ret) => sum + ret * ret, 0) / returns.length) : 0;
-        const momentum = returns.length > 0 ? returns.reduce((sum, ret) => sum + ret, 0) : 0;
-        const volumeSpike = volumeRatio > 1.5;
-        const priceGap = Math.abs(percentChange) > 5;
-        // Get additional metadata with retry logic
-        let metadata = { name: ticker, sector: undefined, marketCap: undefined, currency: 'USD' };
-        for (let attempt = 1; attempt <= 2; attempt++) {
-            try {
-                const quote = await yahoo_finance2_1.default.quote(ticker);
-                metadata = {
-                    name: quote.longName || quote.shortName || ticker,
-                    sector: undefined, // Yahoo Finance API doesn't always provide sector
-                    marketCap: undefined, // Yahoo Finance API doesn't always provide market cap
-                    currency: quote.currency || 'USD'
-                };
-                break; // Success, exit retry loop
-            }
-            catch (error) {
-                console.log(`⚠️ Could not fetch metadata for ${ticker} (attempt ${attempt}):`, error.message);
-                if (attempt === 2) {
-                    console.log(`⚠️ Using default metadata for ${ticker}`);
-                }
-            }
-        }
-        return {
-            ticker,
-            assetType: validation.assetType,
-            startPrice,
-            endPrice,
-            percentChange: parseFloat(percentChange.toFixed(2)),
-            startDate: startDateStr,
-            endDate: endDateStr,
-            averageVolume,
-            actualVolume,
-            volumeRatio,
-            priceHistory,
-            technicalIndicators: {
-                volatility: parseFloat(volatility.toFixed(4)),
-                momentum: parseFloat(momentum.toFixed(4)),
-                volumeSpike,
-                priceGap
-            },
-            metadata
-        };
-    }
-    catch (error) {
-        console.error(`❌ Error fetching stock data for ${ticker}:`, error);
-        return null;
-    }
-}
-// Enhanced news fetching with sentiment analysis and fallback strategies
-async function getEnhancedNews(ticker, startDate, endDate) {
-    try {
-        // Calculate the date range in days
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-        // NewsAPI free plan only allows articles from the last month
-        const maxDaysBack = 30;
-        let effectiveStartDate = startDate;
-        let effectiveEndDate = endDate;
-        // If the requested range is too far back, adjust to the last 30 days
-        if (daysDiff > maxDaysBack) {
-            const adjustedStart = new Date();
-            adjustedStart.setDate(adjustedStart.getDate() - maxDaysBack);
-            effectiveStartDate = adjustedStart.toISOString();
-            console.log(`⚠️ NewsAPI limitation: Adjusting date range from ${daysDiff} days to last ${maxDaysBack} days`);
-        }
-        // Fetch news articles from NewsAPI with better query and retry logic
-        const query = `${ticker} AND (stock OR earnings OR revenue OR analyst OR upgrade OR downgrade OR price OR target OR financial OR quarterly)`;
-        const newsUrl = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&pageSize=30&from=${effectiveStartDate}&to=${effectiveEndDate}&apiKey=9f918bb0ea034b5e81b4fbcea7da5429`;
-        let articles = [];
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-                const response = await axios_1.default.get(newsUrl, {
-                    timeout: 10000,
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (compatible; MarketMover/1.0)'
+                catch (error) {
+                    console.log(`❌ Yahoo Finance attempt ${attempt} failed for ${ticker}:`, error.message);
+                    if (attempt === 3) {
+                        console.log(`❌ All Yahoo Finance attempts failed for ${ticker}`);
+                        return null;
                     }
-                });
-                if (response.status === 426) {
-                    console.log(`⚠️ NewsAPI upgrade required for ${ticker}, using fallback news`);
-                    return await getFallbackNews(ticker);
+                    // Wait before retry
+                    yield new Promise(resolve => setTimeout(resolve, 2000 * attempt));
                 }
-                articles = response.data.articles || [];
-                break; // Success, exit retry loop
             }
-            catch (error) {
-                console.log(`❌ NewsAPI attempt ${attempt} failed for ${ticker}:`, error.message);
-                if (attempt === 3) {
-                    console.log(`🔄 Using fallback news for ${ticker} after all attempts failed`);
-                    return await getFallbackNews(ticker);
+            if (!results || results.length < 2) {
+                console.log(`❌ Insufficient data points for ${ticker}: ${(results === null || results === void 0 ? void 0 : results.length) || 0} points`);
+                return null;
+            }
+            console.log(`✅ Got ${results.length} data points for ${ticker}`);
+            // Calculate volume metrics
+            const volumes = results.map(r => r.volume || 0).filter(v => v > 0);
+            const averageVolume = volumes.length > 0 ? volumes.reduce((a, b) => a + b, 0) / volumes.length : 0;
+            const actualVolume = results[results.length - 1].volume || 0;
+            const volumeRatio = averageVolume > 0 ? actualVolume / averageVolume : 1;
+            // Data is sorted oldest first
+            const startPrice = results[0].close;
+            const endPrice = results[results.length - 1].close;
+            const startDateStr = results[0].date ? new Date(results[0].date).toISOString() : '';
+            const endDateStr = results[results.length - 1].date ? new Date(results[results.length - 1].date).toISOString() : '';
+            const percentChange = ((endPrice - startPrice) / startPrice) * 100;
+            const priceHistory = results.map(r => ({
+                date: r.date ? new Date(r.date).toISOString() : '',
+                close: r.close,
+                volume: r.volume || 0
+            }));
+            console.log(`📈 ${ticker}: $${startPrice.toFixed(2)} → $${endPrice.toFixed(2)} (${percentChange > 0 ? '+' : ''}${percentChange.toFixed(2)}%)`);
+            // Calculate technical indicators
+            const prices = results.map(r => r.close);
+            const returns = prices.slice(1).map((price, i) => (price - prices[i]) / prices[i]);
+            const volatility = returns.length > 0 ? Math.sqrt(returns.reduce((sum, ret) => sum + ret * ret, 0) / returns.length) : 0;
+            const momentum = returns.length > 0 ? returns.reduce((sum, ret) => sum + ret, 0) : 0;
+            const volumeSpike = volumeRatio > 1.5;
+            const priceGap = Math.abs(percentChange) > 5;
+            // Get additional metadata with retry logic
+            let metadata = { name: ticker, sector: undefined, marketCap: undefined, currency: 'USD' };
+            for (let attempt = 1; attempt <= 2; attempt++) {
+                try {
+                    const quote = yield yahoo_finance2_1.default.quote(ticker);
+                    metadata = {
+                        name: quote.longName || quote.shortName || ticker,
+                        sector: undefined, // Yahoo Finance API doesn't always provide sector
+                        marketCap: undefined, // Yahoo Finance API doesn't always provide market cap
+                        currency: quote.currency || 'USD'
+                    };
+                    break; // Success, exit retry loop
                 }
-                // Wait before retry
-                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-            }
-        }
-        console.log(`📰 Found ${articles.length} news articles for ${ticker} (${daysDiff > maxDaysBack ? 'adjusted' : 'full'} date range)`);
-        // If no articles found and we're dealing with a long timeframe, try a broader search
-        if (articles.length === 0 && daysDiff > maxDaysBack) {
-            console.log(`🔄 No articles found for ${ticker}, trying broader search...`);
-            return await getFallbackNews(ticker);
-        }
-        // Process and tag articles with enhanced relevance scoring
-        const processedArticles = articles.map((article) => {
-            const title = article.title || '';
-            const description = article.description || '';
-            // Improved sentiment analysis and tagging
-            const text = `${title} ${description}`.toLowerCase();
-            let sentiment = 0;
-            const tags = [];
-            let relevance = 0;
-            // More nuanced sentiment analysis
-            const positiveKeywords = ['upgrade', 'bullish', 'positive', 'beat', 'higher', 'rise', 'gain', 'surge', 'rally', 'strong', 'growth', 'profit', 'buy', 'outperform'];
-            const negativeKeywords = ['downgrade', 'bearish', 'negative', 'miss', 'lower', 'fall', 'drop', 'decline', 'weak', 'loss', 'concern', 'risk', 'sell', 'underperform'];
-            // Count positive and negative keywords
-            const positiveCount = positiveKeywords.filter(word => text.includes(word)).length;
-            const negativeCount = negativeKeywords.filter(word => text.includes(word)).length;
-            // Calculate sentiment score
-            if (positiveCount > negativeCount) {
-                sentiment = Math.min(0.5, (positiveCount - negativeCount) * 0.2);
-            }
-            else if (negativeCount > positiveCount) {
-                sentiment = Math.max(-0.5, (negativeCount - positiveCount) * -0.2);
-            }
-            // Enhanced tagging logic with relevance scoring
-            if (text.includes('upgrade') || text.includes('bullish') || text.includes('buy') || text.includes('outperform')) {
-                tags.push('Analyst Upgrade');
-                sentiment = Math.max(sentiment, 0.3);
-                relevance += 3;
-            }
-            if (text.includes('downgrade') || text.includes('bearish') || text.includes('sell') || text.includes('underperform')) {
-                tags.push('Analyst Downgrade');
-                sentiment = Math.min(sentiment, -0.3);
-                relevance += 3;
-            }
-            if (text.includes('earnings') || text.includes('quarterly') || text.includes('results') || text.includes('q1') || text.includes('q2') || text.includes('q3') || text.includes('q4')) {
-                tags.push('Earnings');
-                relevance += 4;
-            }
-            if (text.includes('revenue') || text.includes('sales') || text.includes('financial') || text.includes('guidance')) {
-                tags.push('Revenue');
-                relevance += 3;
-            }
-            if (text.includes('ai') || text.includes('artificial intelligence') || text.includes('technology') || text.includes('innovation')) {
-                tags.push('AI/Tech');
-                relevance += 2;
-            }
-            if (text.includes('fed') || text.includes('interest rate') || text.includes('inflation') || text.includes('economy') || text.includes('macro')) {
-                tags.push('Macro');
-                relevance += 2;
-            }
-            if (text.includes('price target') || text.includes('target price') || text.includes('pt')) {
-                tags.push('Price Target');
-                relevance += 3;
-            }
-            if (text.includes('volume') || text.includes('trading') || text.includes('technical')) {
-                tags.push('Trading');
-                relevance += 1;
-            }
-            if (text.includes('partnership') || text.includes('acquisition') || text.includes('merger') || text.includes('deal')) {
-                tags.push('Corporate Action');
-                relevance += 3;
-            }
-            // Boost relevance for high-quality sources
-            const qualitySources = ['bloomberg', 'reuters', 'cnbc', 'marketwatch', 'yahoo finance', 'seeking alpha'];
-            if (qualitySources.some(source => article.source?.name?.toLowerCase().includes(source))) {
-                relevance += 2;
-            }
-            // Penalize irrelevant articles
-            if (text.includes('lawsuit') || text.includes('legal') || text.includes('court')) {
-                relevance -= 1;
+                catch (error) {
+                    console.log(`⚠️ Could not fetch metadata for ${ticker} (attempt ${attempt}):`, error.message);
+                    if (attempt === 2) {
+                        console.log(`⚠️ Using default metadata for ${ticker}`);
+                    }
+                }
             }
             return {
-                title: article.title,
-                description: article.description,
-                url: article.url,
-                publishedAt: article.publishedAt,
-                source: article.source?.name || 'Unknown',
-                sentiment,
-                tags,
-                relevance: Math.max(0, relevance)
+                ticker,
+                assetType: validation.assetType,
+                startPrice,
+                endPrice,
+                percentChange: parseFloat(percentChange.toFixed(2)),
+                startDate: startDateStr,
+                endDate: endDateStr,
+                averageVolume,
+                actualVolume,
+                volumeRatio,
+                priceHistory,
+                technicalIndicators: {
+                    volatility: parseFloat(volatility.toFixed(4)),
+                    momentum: parseFloat(momentum.toFixed(4)),
+                    volumeSpike,
+                    priceGap
+                },
+                metadata
             };
-        });
-        // Sort by relevance and recency
-        processedArticles.sort((a, b) => {
-            // Prioritize articles with high relevance and sentiment magnitude
-            const aScore = a.relevance + Math.abs(a.sentiment || 0) * 2;
-            const bScore = b.relevance + Math.abs(b.sentiment || 0) * 2;
-            if (aScore !== bScore)
-                return bScore - aScore;
-            // Then by recency
-            return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
-        });
-        // Filter out low-relevance articles
-        const filteredArticles = processedArticles.filter(article => article.relevance > 0);
-        console.log(`🏷️ Processed ${filteredArticles.length} high-relevance articles with tags and sentiment`);
-        return filteredArticles.slice(0, 15); // Return top 15 most relevant
-    }
-    catch (error) {
-        console.error('❌ Error fetching news:', error);
-        // Try fallback if NewsAPI fails
-        return await getFallbackNews(ticker);
-    }
+        }
+        catch (error) {
+            console.error(`❌ Error fetching stock data for ${ticker}:`, error);
+            return null;
+        }
+    });
+}
+// Enhanced news fetching with sentiment analysis and fallback strategies
+function getEnhancedNews(ticker, startDate, endDate) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            // Calculate the date range in days
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+            // NewsAPI free plan only allows articles from the last month
+            const maxDaysBack = 30;
+            let effectiveStartDate = startDate;
+            let effectiveEndDate = endDate;
+            // If the requested range is too far back, adjust to the last 30 days
+            if (daysDiff > maxDaysBack) {
+                const adjustedStart = new Date();
+                adjustedStart.setDate(adjustedStart.getDate() - maxDaysBack);
+                effectiveStartDate = adjustedStart.toISOString();
+                console.log(`⚠️ NewsAPI limitation: Adjusting date range from ${daysDiff} days to last ${maxDaysBack} days`);
+            }
+            // Fetch news articles from NewsAPI with better query and retry logic
+            const query = `${ticker} AND (stock OR earnings OR revenue OR analyst OR upgrade OR downgrade OR price OR target OR financial OR quarterly)`;
+            const newsUrl = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&pageSize=30&from=${effectiveStartDate}&to=${effectiveEndDate}&apiKey=9f918bb0ea034b5e81b4fbcea7da5429`;
+            let articles = [];
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    const response = yield axios_1.default.get(newsUrl, {
+                        timeout: 10000,
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (compatible; MarketMover/1.0)'
+                        }
+                    });
+                    if (response.status === 426) {
+                        console.log(`⚠️ NewsAPI upgrade required for ${ticker}, using fallback news`);
+                        return yield getFallbackNews(ticker);
+                    }
+                    articles = response.data.articles || [];
+                    break; // Success, exit retry loop
+                }
+                catch (error) {
+                    console.log(`❌ NewsAPI attempt ${attempt} failed for ${ticker}:`, error.message);
+                    if (attempt === 3) {
+                        console.log(`🔄 Using fallback news for ${ticker} after all attempts failed`);
+                        return yield getFallbackNews(ticker);
+                    }
+                    // Wait before retry
+                    yield new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                }
+            }
+            console.log(`📰 Found ${articles.length} news articles for ${ticker} (${daysDiff > maxDaysBack ? 'adjusted' : 'full'} date range)`);
+            // If no articles found and we're dealing with a long timeframe, try a broader search
+            if (articles.length === 0 && daysDiff > maxDaysBack) {
+                console.log(`🔄 No articles found for ${ticker}, trying broader search...`);
+                return yield getFallbackNews(ticker);
+            }
+            // Process and tag articles with enhanced relevance scoring
+            const processedArticles = articles.map((article) => {
+                var _a;
+                const title = article.title || '';
+                const description = article.description || '';
+                // Improved sentiment analysis and tagging
+                const text = `${title} ${description}`.toLowerCase();
+                let sentiment = 0;
+                const tags = [];
+                let relevance = 0;
+                // More nuanced sentiment analysis
+                const positiveKeywords = ['upgrade', 'bullish', 'positive', 'beat', 'higher', 'rise', 'gain', 'surge', 'rally', 'strong', 'growth', 'profit', 'buy', 'outperform'];
+                const negativeKeywords = ['downgrade', 'bearish', 'negative', 'miss', 'lower', 'fall', 'drop', 'decline', 'weak', 'loss', 'concern', 'risk', 'sell', 'underperform'];
+                // Count positive and negative keywords
+                const positiveCount = positiveKeywords.filter(word => text.includes(word)).length;
+                const negativeCount = negativeKeywords.filter(word => text.includes(word)).length;
+                // Calculate sentiment score
+                if (positiveCount > negativeCount) {
+                    sentiment = Math.min(0.5, (positiveCount - negativeCount) * 0.2);
+                }
+                else if (negativeCount > positiveCount) {
+                    sentiment = Math.max(-0.5, (negativeCount - positiveCount) * -0.2);
+                }
+                // Enhanced tagging logic with relevance scoring
+                if (text.includes('upgrade') || text.includes('bullish') || text.includes('buy') || text.includes('outperform')) {
+                    tags.push('Analyst Upgrade');
+                    sentiment = Math.max(sentiment, 0.3);
+                    relevance += 3;
+                }
+                if (text.includes('downgrade') || text.includes('bearish') || text.includes('sell') || text.includes('underperform')) {
+                    tags.push('Analyst Downgrade');
+                    sentiment = Math.min(sentiment, -0.3);
+                    relevance += 3;
+                }
+                if (text.includes('earnings') || text.includes('quarterly') || text.includes('results') || text.includes('q1') || text.includes('q2') || text.includes('q3') || text.includes('q4')) {
+                    tags.push('Earnings');
+                    relevance += 4;
+                }
+                if (text.includes('revenue') || text.includes('sales') || text.includes('financial') || text.includes('guidance')) {
+                    tags.push('Revenue');
+                    relevance += 3;
+                }
+                if (text.includes('ai') || text.includes('artificial intelligence') || text.includes('technology') || text.includes('innovation')) {
+                    tags.push('AI/Tech');
+                    relevance += 2;
+                }
+                if (text.includes('fed') || text.includes('interest rate') || text.includes('inflation') || text.includes('economy') || text.includes('macro')) {
+                    tags.push('Macro');
+                    relevance += 2;
+                }
+                if (text.includes('price target') || text.includes('target price') || text.includes('pt')) {
+                    tags.push('Price Target');
+                    relevance += 3;
+                }
+                if (text.includes('volume') || text.includes('trading') || text.includes('technical')) {
+                    tags.push('Trading');
+                    relevance += 1;
+                }
+                if (text.includes('partnership') || text.includes('acquisition') || text.includes('merger') || text.includes('deal')) {
+                    tags.push('Corporate Action');
+                    relevance += 3;
+                }
+                // Boost relevance for high-quality sources
+                const qualitySources = ['bloomberg', 'reuters', 'cnbc', 'marketwatch', 'yahoo finance', 'seeking alpha'];
+                if (qualitySources.some(source => { var _a, _b; return (_b = (_a = article.source) === null || _a === void 0 ? void 0 : _a.name) === null || _b === void 0 ? void 0 : _b.toLowerCase().includes(source); })) {
+                    relevance += 2;
+                }
+                // Penalize irrelevant articles
+                if (text.includes('lawsuit') || text.includes('legal') || text.includes('court')) {
+                    relevance -= 1;
+                }
+                return {
+                    title: article.title,
+                    description: article.description,
+                    url: article.url,
+                    publishedAt: article.publishedAt,
+                    source: ((_a = article.source) === null || _a === void 0 ? void 0 : _a.name) || 'Unknown',
+                    sentiment,
+                    tags,
+                    relevance: Math.max(0, relevance)
+                };
+            });
+            // Sort by relevance and recency
+            processedArticles.sort((a, b) => {
+                // Prioritize articles with high relevance and sentiment magnitude
+                const aScore = a.relevance + Math.abs(a.sentiment || 0) * 2;
+                const bScore = b.relevance + Math.abs(b.sentiment || 0) * 2;
+                if (aScore !== bScore)
+                    return bScore - aScore;
+                // Then by recency
+                return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+            });
+            // Filter out low-relevance articles
+            const filteredArticles = processedArticles.filter(article => article.relevance > 0);
+            console.log(`🏷️ Processed ${filteredArticles.length} high-relevance articles with tags and sentiment`);
+            return filteredArticles.slice(0, 15); // Return top 15 most relevant
+        }
+        catch (error) {
+            console.error('❌ Error fetching news:', error);
+            // Try fallback if NewsAPI fails
+            return yield getFallbackNews(ticker);
+        }
+    });
 }
 // Fallback news function for when NewsAPI fails or returns no results
-async function getFallbackNews(ticker) {
-    console.log(`🔄 Using fallback news for ${ticker}`);
-    // Generate contextual news based on the ticker and current market conditions
-    const fallbackArticles = [];
-    // Common news patterns for different asset types
-    const isCrypto = ['BTC', 'ETH', 'USDT', 'USDC', 'BNB', 'XRP', 'ADA', 'SOL', 'DOT', 'DOGE'].includes(ticker);
-    if (isCrypto) {
-        // Crypto-specific fallback news
-        fallbackArticles.push({
-            title: `${ticker} Price Analysis: Market Sentiment and Technical Indicators`,
-            description: `Recent market analysis shows ${ticker} trading patterns and investor sentiment. Technical indicators suggest current market positioning.`,
-            url: '#',
-            publishedAt: new Date().toISOString(),
-            source: 'Market Analysis',
-            sentiment: 0.1,
-            tags: ['Technical Analysis', 'Market Sentiment'],
-            relevance: 6
-        }, {
-            title: `Cryptocurrency Market Update: ${ticker} Performance in Current Environment`,
-            description: `Overview of ${ticker} performance relative to broader crypto market trends and regulatory developments.`,
-            url: '#',
-            publishedAt: new Date().toISOString(),
-            source: 'Crypto Market Report',
-            sentiment: 0.2,
-            tags: ['Market Update', 'Regulatory'],
-            relevance: 5
-        }, {
-            title: `${ticker} Trading Volume Analysis: Institutional Interest Trends`,
-            description: `Analysis of ${ticker} trading volume patterns and institutional investor activity in the cryptocurrency space.`,
-            url: '#',
-            publishedAt: new Date().toISOString(),
-            source: 'Trading Analysis',
-            sentiment: 0.3,
-            tags: ['Trading', 'Institutional'],
-            relevance: 4
-        });
-    }
-    else {
-        // Stock/ETF fallback news
-        fallbackArticles.push({
-            title: `${ticker} Stock Analysis: Recent Performance and Market Position`,
-            description: `Comprehensive analysis of ${ticker} stock performance, including technical indicators and market positioning.`,
-            url: '#',
-            publishedAt: new Date().toISOString(),
-            source: 'Stock Analysis',
-            sentiment: 0.2,
-            tags: ['Stock Analysis', 'Technical'],
-            relevance: 6
-        }, {
-            title: `Market Update: ${ticker} Trading Activity and Investor Sentiment`,
-            description: `Current trading activity and investor sentiment analysis for ${ticker} in the broader market context.`,
-            url: '#',
-            publishedAt: new Date().toISOString(),
-            source: 'Market Report',
-            sentiment: 0.1,
-            tags: ['Market Update', 'Sentiment'],
-            relevance: 5
-        }, {
-            title: `${ticker} Sector Performance: Industry Trends and Competitive Position`,
-            description: `Analysis of ${ticker} performance within its sector and competitive positioning in the current market environment.`,
-            url: '#',
-            publishedAt: new Date().toISOString(),
-            source: 'Sector Analysis',
-            sentiment: 0.3,
-            tags: ['Sector Analysis', 'Competitive'],
-            relevance: 4
-        });
-    }
-    console.log(`📰 Generated ${fallbackArticles.length} fallback news articles for ${ticker}`);
-    return fallbackArticles;
+function getFallbackNews(ticker) {
+    return __awaiter(this, void 0, void 0, function* () {
+        console.log(`🔄 Using fallback news for ${ticker}`);
+        // Generate contextual news based on the ticker and current market conditions
+        const fallbackArticles = [];
+        // Common news patterns for different asset types
+        const isCrypto = ['BTC', 'ETH', 'USDT', 'USDC', 'BNB', 'XRP', 'ADA', 'SOL', 'DOT', 'DOGE'].includes(ticker);
+        if (isCrypto) {
+            // Crypto-specific fallback news
+            fallbackArticles.push({
+                title: `${ticker} Price Analysis: Market Sentiment and Technical Indicators`,
+                description: `Recent market analysis shows ${ticker} trading patterns and investor sentiment. Technical indicators suggest current market positioning.`,
+                url: '#',
+                publishedAt: new Date().toISOString(),
+                source: 'Market Analysis',
+                sentiment: 0.1,
+                tags: ['Technical Analysis', 'Market Sentiment'],
+                relevance: 6
+            }, {
+                title: `Cryptocurrency Market Update: ${ticker} Performance in Current Environment`,
+                description: `Overview of ${ticker} performance relative to broader crypto market trends and regulatory developments.`,
+                url: '#',
+                publishedAt: new Date().toISOString(),
+                source: 'Crypto Market Report',
+                sentiment: 0.2,
+                tags: ['Market Update', 'Regulatory'],
+                relevance: 5
+            }, {
+                title: `${ticker} Trading Volume Analysis: Institutional Interest Trends`,
+                description: `Analysis of ${ticker} trading volume patterns and institutional investor activity in the cryptocurrency space.`,
+                url: '#',
+                publishedAt: new Date().toISOString(),
+                source: 'Trading Analysis',
+                sentiment: 0.3,
+                tags: ['Trading', 'Institutional'],
+                relevance: 4
+            });
+        }
+        else {
+            // Stock/ETF fallback news
+            fallbackArticles.push({
+                title: `${ticker} Stock Analysis: Recent Performance and Market Position`,
+                description: `Comprehensive analysis of ${ticker} stock performance, including technical indicators and market positioning.`,
+                url: '#',
+                publishedAt: new Date().toISOString(),
+                source: 'Stock Analysis',
+                sentiment: 0.2,
+                tags: ['Stock Analysis', 'Technical'],
+                relevance: 6
+            }, {
+                title: `Market Update: ${ticker} Trading Activity and Investor Sentiment`,
+                description: `Current trading activity and investor sentiment analysis for ${ticker} in the broader market context.`,
+                url: '#',
+                publishedAt: new Date().toISOString(),
+                source: 'Market Report',
+                sentiment: 0.1,
+                tags: ['Market Update', 'Sentiment'],
+                relevance: 5
+            }, {
+                title: `${ticker} Sector Performance: Industry Trends and Competitive Position`,
+                description: `Analysis of ${ticker} performance within its sector and competitive positioning in the current market environment.`,
+                url: '#',
+                publishedAt: new Date().toISOString(),
+                source: 'Sector Analysis',
+                sentiment: 0.3,
+                tags: ['Sector Analysis', 'Competitive'],
+                relevance: 4
+            });
+        }
+        console.log(`📰 Generated ${fallbackArticles.length} fallback news articles for ${ticker}`);
+        return fallbackArticles;
+    });
 }
-// Generate enhanced LLaMA 3 prompt for financial analysis
-function generateLLaMAPrompt(stockData, newsArticles, timeframe, technicalIndicators) {
+// Generate enhanced AI prompt for financial analysis
+function generateAIPrompt(stockData, newsArticles, timeframe, technicalIndicators) {
+    var _a, _b, _c;
     const startDate = new Date(stockData.startDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
     const endDate = new Date(stockData.endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
     const priceChange = `${stockData.percentChange > 0 ? '+' : ''}${stockData.percentChange}%`;
@@ -1061,14 +1085,15 @@ function generateLLaMAPrompt(stockData, newsArticles, timeframe, technicalIndica
     const gapContext = stockData.technicalIndicators.priceGap ? ' (Significant price gap detected)' : '';
     // Asset-specific context
     const assetContext = stockData.assetType === 'crypto'
-        ? `\nASSET TYPE: Cryptocurrency (${stockData.metadata?.name || stockData.ticker})`
+        ? `\nASSET TYPE: Cryptocurrency (${((_a = stockData.metadata) === null || _a === void 0 ? void 0 : _a.name) || stockData.ticker})`
         : stockData.assetType === 'etf'
-            ? `\nASSET TYPE: ETF (${stockData.metadata?.name || stockData.ticker})`
-            : `\nASSET TYPE: Stock (${stockData.metadata?.name || stockData.ticker})`;
+            ? `\nASSET TYPE: ETF (${((_b = stockData.metadata) === null || _b === void 0 ? void 0 : _b.name) || stockData.ticker})`
+            : `\nASSET TYPE: Stock (${((_c = stockData.metadata) === null || _c === void 0 ? void 0 : _c.name) || stockData.ticker})`;
     // Format news headlines with enhanced metadata
     const headlinesSection = newsArticles.length > 0
         ? newsArticles.map((article, i) => {
-            const tags = article.tags?.length ? ` [${article.tags.join(', ')}]` : '';
+            var _a;
+            const tags = ((_a = article.tags) === null || _a === void 0 ? void 0 : _a.length) ? ` [${article.tags.join(', ')}]` : '';
             const sentiment = article.sentiment ? ` (${article.sentiment > 0 ? '+' : ''}${article.sentiment.toFixed(1)})` : '';
             const relevance = ` [Relevance: ${article.relevance}]`;
             return `${i + 1}. ${article.title}${tags}${sentiment}${relevance}`;
@@ -1081,6 +1106,8 @@ function generateLLaMAPrompt(stockData, newsArticles, timeframe, technicalIndica
         ? 'cryptocurrency price movements'
         : 'stock price movements';
     return `You are a ${role}. Your task is to provide a professional, evidence-based analysis of ${analysisType}.
+
+IMPORTANT: Keep all explanations concise and to the point. Each driver should be 1-2 sentences maximum.
 
 ${assetContext}
 Ticker: $${stockData.ticker}
@@ -1102,11 +1129,11 @@ ${headlinesSection}
 
 ANALYSIS REQUIREMENTS:
 1. Identify exactly 2-3 drivers that most likely caused this price movement
-2. ${newsArticles.length > 0 ? 'Each driver must be supported by specific evidence from the news articles' : 'Focus on technical analysis and market context when news is limited'}
+2. ${newsArticles.length > 0 ? 'Each driver must be supported by key evidence from the news articles' : 'Focus on technical analysis and market context when news is limited'}
 3. Consider the magnitude and direction of the price change
 4. Account for technical indicators (volume, volatility, momentum)
 5. Avoid contradictory explanations
-6. Be specific and actionable
+6. Be specific, actionable, and CONCISE (1-2 sentences per driver)
 
 DRIVER CATEGORIES (use exactly one of these):
 ${stockData.assetType === 'crypto' ? `
@@ -1125,26 +1152,29 @@ ${stockData.assetType === 'crypto' ? `
 OUTPUT FORMAT:
 Provide exactly 2-3 drivers in this format:
 
-1. [Driver Category] — [Specific explanation with evidence from news articles] (Confidence: High/Medium/Low)
-2. [Driver Category] — [Specific explanation with evidence from news articles] (Confidence: High/Medium/Low)
-3. [Driver Category] — [Specific explanation with evidence from news articles] (Confidence: High/Medium/Low)
+1. [Driver Category] — [Concise explanation with key evidence] (Confidence: High/Medium/Low)
+2. [Driver Category] — [Concise explanation with key evidence] (Confidence: High/Medium/Low)
+3. [Driver Category] — [Concise explanation with key evidence] (Confidence: High/Medium/Low)
 
-Be specific, evidence-based, and professional. If the news doesn't clearly support a driver, don't include it. Focus on the most impactful factors for this specific timeframe.`;
+IMPORTANT: Keep each driver explanation to 1-2 sentences maximum. Be specific but concise. Focus on the most impactful factors for this specific timeframe.`;
 }
-// Call AI service for analysis
-async function getLLaMAAnalysis(prompt) {
-    try {
-        const result = await aiService.analyze({ prompt });
-        console.log(`🤖 AI Analysis using ${result.provider} (${result.model})`);
-        return result.analysis;
-    }
-    catch (error) {
-        console.error('❌ AI analysis error:', error);
-        return 'AI analysis unavailable. Please check your API keys or AI service configuration.';
-    }
+// Call Gemini for analysis
+function getGeminiAnalysis(prompt) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+            const result = yield model.generateContent(prompt);
+            const response = yield result.response;
+            return response.text() || 'Unable to generate analysis.';
+        }
+        catch (error) {
+            console.error('❌ Gemini API error:', error);
+            return 'Gemini analysis unavailable. Please check your API key and internet connection.';
+        }
+    });
 }
 // Main analysis endpoint
-app.post('/analyze', async (req, res) => {
+app.post('/analyze', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { ticker, timeframe } = req.body;
     console.log('➡️ Incoming request:', { ticker, timeframe });
     if (!ticker || !timeframe) {
@@ -1159,7 +1189,7 @@ app.post('/analyze', async (req, res) => {
     }
     try {
         // Get enhanced stock data
-        const stockData = await getEnhancedStockData(ticker, timeframe);
+        const stockData = yield getEnhancedStockData(ticker, timeframe);
         if (!stockData) {
             console.log('❌ No stock data available for', ticker);
             res.json({
@@ -1176,20 +1206,20 @@ app.post('/analyze', async (req, res) => {
         const indicatorsForTimeframe = timeframeIndicators[timeframe] || timeframeIndicators["1 week"];
         const technicalIndicators = calculateTechnicalIndicators(indicatorsForTimeframe, stockData.priceHistory, stockData.endPrice, stockData.percentChange);
         // Get S&P 500 context
-        const sp500Data = await getEnhancedStockData('SPY', timeframe);
+        const sp500Data = yield getEnhancedStockData('SPY', timeframe);
         let marketContext = '';
         if (sp500Data) {
             const spDir = sp500Data.percentChange > 0 ? 'up' : (sp500Data.percentChange < 0 ? 'down' : 'flat');
             marketContext = `Market context: S&P 500 moved ${spDir} by ${sp500Data.percentChange > 0 ? '+' : ''}${sp500Data.percentChange}% during the same period.`;
         }
         // Get enhanced news articles
-        const newsArticles = await getEnhancedNews(ticker, stockData.startDate, stockData.endDate);
-        // Generate LLaMA prompt
-        const prompt = generateLLaMAPrompt(stockData, newsArticles, timeframe, technicalIndicators);
-        // Get LLaMA analysis
-        const llaMAAnalysis = await getLLaMAAnalysis(prompt);
-        // Parse and format drivers from LLaMA response
-        const drivers = llaMAAnalysis
+        const newsArticles = yield getEnhancedNews(ticker, stockData.startDate, stockData.endDate);
+        // Generate AI prompt
+        const prompt = generateAIPrompt(stockData, newsArticles, timeframe, technicalIndicators);
+        // Get Gemini analysis
+        const geminiAnalysis = yield getGeminiAnalysis(prompt);
+        // Parse and format drivers from Gemini response
+        const drivers = geminiAnalysis
             .split('\n')
             .filter(line => /^\d+\./.test(line.trim()))
             .map(line => line.trim().replace(/^\d+\.\s*/, ''))
@@ -1200,7 +1230,7 @@ app.post('/analyze', async (req, res) => {
             assetType: stockData.assetType,
             timeframe,
             drivers,
-            llaMAAnalysis,
+            geminiAnalysis: geminiAnalysis,
             newsArticles: newsArticles.map(article => ({
                 title: article.title,
                 source: article.source,
@@ -1244,16 +1274,16 @@ app.post('/analyze', async (req, res) => {
             technicalIndicators: []
         });
     }
-});
+}));
 // Ticker validation endpoint
-app.post('/validate-ticker', async (req, res) => {
+app.post('/validate-ticker', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { ticker } = req.body;
     if (!ticker) {
         res.status(400).json({ error: 'Missing ticker parameter' });
         return;
     }
     try {
-        const validation = await validateTicker(ticker);
+        const validation = yield validateTicker(ticker);
         res.json({
             ticker: ticker.toUpperCase(),
             isValid: validation.isValid,
@@ -1265,19 +1295,14 @@ app.post('/validate-ticker', async (req, res) => {
         console.error('❌ Ticker validation error:', error);
         res.status(500).json({ error: 'Validation failed' });
     }
-});
+}));
 // Health check endpoint
 app.get('/health', (req, res) => {
-    res.json({
-        status: 'OK',
-        timestamp: new Date().toISOString(),
-        aiService: aiService.getProviderInfo(),
-        aiAvailable: aiService.isAvailable()
-    });
+    res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 app.listen(port, () => {
     console.log(`✅ Server running at http://localhost:${port}`);
-    console.log('📊 Enhanced financial analysis with LLaMA 3 integration ready!');
+    console.log('📊 Enhanced financial analysis with Gemini AI integration ready!');
 });
 // Generate commentary for technical indicators
 function generateIndicatorComment(indicatorName, value, signal) {
