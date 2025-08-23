@@ -8,7 +8,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 const { Readability } = require('node-readability')
 
 const app = express()
-const port = 3001
+const port = process.env.PORT || 3001
 
 app.use(cors({
   origin: true, // Allow all origins
