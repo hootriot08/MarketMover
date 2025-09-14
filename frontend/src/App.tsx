@@ -2,7 +2,8 @@ import React, { useState } from 'react'
 import './App.css'
 import { motion } from 'framer-motion'
 
-// Enhanced interfaces matching our 100/100 backend
+// TODO: Maybe we should move these interfaces to a separate types file
+// but for now keeping them here since it's just one component
 interface StockData {
   startPrice: number
   endPrice: number
@@ -147,6 +148,7 @@ function getTechnicalIndicatorColor(signal?: string): string {
 }
 
 const App = () => {
+  // Default to AAPL since it's a good example stock
   const [ticker, setTicker] = useState('AAPL')
   const [timeframe, setTimeframe] = useState('1 week')
   const [loading, setLoading] = useState(false)
@@ -160,6 +162,7 @@ const App = () => {
     setAnalysisData(null)
 
     try {
+      // Make sure ticker is uppercase for consistency
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -171,7 +174,7 @@ const App = () => {
       }
 
       const data = await response.json()
-      console.log('Enhanced API response:', data)
+      console.log('API response:', data) // Keeping this for debugging
       
       if (data.error) {
         throw new Error(data.error)
@@ -195,7 +198,7 @@ const App = () => {
           
           {/* Header Section */}
           <div className="results-header">
-            <img src="/assets/logo-DReZzkEE.png" alt="logo" className="logo" />
+            <img src="/images/logo.png" alt="logo" className="logo" />
             <div className="ticker-header">
               <div className="ticker-title">
                 <span className="asset-icon">{getAssetTypeIcon(analysisData.assetType)}</span>
@@ -393,10 +396,10 @@ const App = () => {
       >
         <p className="sub-brand">SummariFi Presents</p>
         <div className="brand-row">
-          <img src="/assets/logo-DReZzkEE.png" alt="logo" className="logo" />
+          <img src="/images/logo.png" alt="logo" className="logo" />
           <h1>Market Mover</h1>
         </div>
-        <p className="tagline">AI-Powered Financial Analysis with 100/100 Quality</p>
+        <p className="tagline">AI-Powered Financial Analysis</p>
       </motion.div>
 
       <motion.div
@@ -444,7 +447,7 @@ const App = () => {
             disabled={loading || !ticker.trim()}
             className="analyze-button"
           >
-            {loading ? '🤖 AI Analyzing...' : '🚀 Analyze with AI'}
+            {loading ? '🤖 Analyzing...' : '🚀 Analyze Stock'}
           </button>
           {loading && (
             <div className="loading-info">
@@ -463,19 +466,19 @@ const App = () => {
         <div className="features-preview">
           <div className="feature-item">
             <span className="feature-icon">🤖</span>
-            <span>Gemini AI Analysis</span>
+            <span>AI Analysis</span>
           </div>
           <div className="feature-item">
             <span className="feature-icon">📊</span>
-            <span>Technical Indicators</span>
+            <span>Technical Data</span>
           </div>
           <div className="feature-item">
             <span className="feature-icon">📰</span>
-            <span>Smart News Filtering</span>
+            <span>News Analysis</span>
           </div>
           <div className="feature-item">
             <span className="feature-icon">🎯</span>
-            <span>Confidence Scoring</span>
+            <span>Market Insights</span>
           </div>
         </div>
       </motion.div>

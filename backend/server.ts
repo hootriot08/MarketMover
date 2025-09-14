@@ -5,21 +5,24 @@ import type { Request, Response } from 'express'
 import axios from 'axios'
 import yahooFinance from 'yahoo-finance2'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-const { Readability } = require('node-readability')
+import Readability from 'node-readability'
 
 const app = express()
 const port = process.env.PORT || 3001
 
+// TODO: Move API key to environment variables in production
+
 app.use(cors({
-  origin: true, // Allow all origins
+  origin: true, // Allow all origins for now - should restrict in production
   credentials: true
 }))
 app.use(bodyParser.json())
 
-// Initialize Google AI client
+// Initialize Google AI client - using Gemini for analysis
 const genAI = new GoogleGenerativeAI('AIzaSyCHhqlfqxa4N1OQzaIqc56TNtJqd6SAP40')
 
-// Timeframe-to-Indicator Mapping
+// Map different timeframes to relevant technical indicators
+// Shorter timeframes get more sensitive indicators
 const timeframeIndicators = {
   "1 day": ["VWAP", "Bollinger Bands", "MACD", "Volume Spike"],
   "3 days": ["RSI (7)", "MACD", "ATR", "OBV"],
@@ -94,18 +97,19 @@ interface NewsArticle {
   relevance: number
 }
 
-// Ticker validation function with better error handling
+// Check if a ticker is valid and determine if it's stock, ETF, or crypto
 async function validateTicker(ticker: string): Promise<{ isValid: boolean; assetType: 'stock' | 'etf' | 'crypto'; name?: string }> {
   const upperTicker = ticker.toUpperCase()
   
-  // Common crypto tickers
+  // List of major crypto tickers we support
+  // TODO: Add more crypto support as needed
   const cryptoList = ['BTC', 'ETH', 'USDT', 'USDC', 'BNB', 'XRP', 'ADA', 'SOL', 'DOT', 'DOGE', 'AVAX', 'MATIC', 'LINK', 'UNI', 'ATOM', 'LTC', 'BCH', 'XLM', 'VET', 'FIL']
   
   if (cryptoList.includes(upperTicker)) {
     return { isValid: true, assetType: 'crypto', name: getCryptoName(upperTicker) }
   }
   
-  // Add retry logic for Yahoo Finance
+  // Try Yahoo Finance with retry logic since it can be flaky
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       // Try to get basic info from Yahoo Finance
@@ -133,7 +137,7 @@ async function validateTicker(ticker: string): Promise<{ isValid: boolean; asset
   return { isValid: false, assetType: 'stock' }
 }
 
-// Helper function to get crypto names
+// Map crypto tickers to their full names
 function getCryptoName(ticker: string): string {
   const cryptoNames: Record<string, string> = {
     'BTC': 'Bitcoin',
@@ -160,7 +164,7 @@ function getCryptoName(ticker: string): string {
   return cryptoNames[ticker] || ticker
 }
 
-// Calculate technical indicators based on timeframe and price data
+// Calculate technical indicators based on the selected timeframe
 function calculateTechnicalIndicators(
   indicators: string[], 
   priceHistory: Array<{date: string, close: number, volume: number}>,
@@ -414,7 +418,7 @@ function calculateTechnicalIndicators(
   return results
 }
 
-// Technical indicator calculation helper functions
+// Helper functions for calculating various technical indicators
 function calculateVWAP(priceHistory: Array<{date: string, close: number, volume: number}>): number {
   if (priceHistory.length === 0) return 0
   const totalVolume = priceHistory.reduce((sum, p) => sum + p.volume, 0)
@@ -585,7 +589,7 @@ function calculateHeikinAshi(priceHistory: Array<{date: string, close: number, v
   return currentPrice > prevPrice ? 1 : -1
 }
 
-// Enhanced function to get crypto data from CoinGecko
+// Get crypto data from CoinGecko API
 async function getCryptoData(ticker: string, timeframe: string): Promise<StockData | null> {
   try {
     const timeframeMap: Record<string, number> = {
@@ -751,7 +755,7 @@ async function getCryptoData(ticker: string, timeframe: string): Promise<StockDa
   }
 }
 
-// Fallback crypto data function for when CoinGecko API fails
+// Generate fallback data when CoinGecko API is down
 async function getCryptoFallbackData(ticker: string, timeframe: string): Promise<StockData | null> {
   console.log(`🔄 Using fallback crypto data for ${ticker}`)
   
@@ -841,7 +845,7 @@ async function getCryptoFallbackData(ticker: string, timeframe: string): Promise
   }
 }
 
-// Enhanced function to get comprehensive stock data
+// Get stock data from Yahoo Finance with error handling
 async function getEnhancedStockData(ticker: string, timeframe: string): Promise<StockData | null> {
   try {
     // First validate the ticker
@@ -877,7 +881,8 @@ async function getEnhancedStockData(ticker: string, timeframe: string): Promise<
 
     console.log(`📊 Fetching data for ${ticker} over ${timeframe} (${days} days)`)
 
-    // Fetch historical data using yahoo-finance2 with retry logic
+    // Fetch historical data with retry logic (Yahoo Finance can be unreliable)
+    // TODO: Consider adding a backup data source
     let results = null
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
@@ -935,6 +940,7 @@ async function getEnhancedStockData(ticker: string, timeframe: string): Promise<
     const priceGap = Math.abs(percentChange) > 5
 
     // Get additional metadata with retry logic
+    // TODO: Add more metadata fields like sector, market cap, etc.
     let metadata = { name: ticker, sector: undefined, marketCap: undefined, currency: 'USD' }
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
@@ -980,7 +986,7 @@ async function getEnhancedStockData(ticker: string, timeframe: string): Promise<
   }
 }
 
-// Enhanced news fetching with sentiment analysis and fallback strategies
+// Fetch news articles and analyze sentiment
 async function getEnhancedNews(ticker: string, startDate: string, endDate: string): Promise<NewsArticle[]> {
   try {
     // Calculate the date range in days
@@ -1002,6 +1008,7 @@ async function getEnhancedNews(ticker: string, startDate: string, endDate: strin
     }
 
     // Fetch news articles from NewsAPI with better query and retry logic
+    // TODO: Optimize the search query for better results
     const query = `${ticker} AND (stock OR earnings OR revenue OR analyst OR upgrade OR downgrade OR price OR target OR financial OR quarterly)`
     const newsUrl = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&pageSize=30&from=${effectiveStartDate}&to=${effectiveEndDate}&apiKey=9f918bb0ea034b5e81b4fbcea7da5429`
     
@@ -1042,6 +1049,7 @@ async function getEnhancedNews(ticker: string, startDate: string, endDate: strin
     }
 
     // Process and tag articles with enhanced relevance scoring
+    // TODO: Improve sentiment analysis algorithm
     const processedArticles: NewsArticle[] = articles.map((article: any) => {
       const title = article.title || ''
       const description = article.description || ''
@@ -1154,7 +1162,7 @@ async function getEnhancedNews(ticker: string, startDate: string, endDate: strin
   }
 }
 
-// Fallback news function for when NewsAPI fails or returns no results
+// Generate fallback news when NewsAPI is unavailable
 async function getFallbackNews(ticker: string): Promise<NewsArticle[]> {
   console.log(`🔄 Using fallback news for ${ticker}`)
   
@@ -1238,7 +1246,7 @@ async function getFallbackNews(ticker: string): Promise<NewsArticle[]> {
   return fallbackArticles
 }
 
-// Generate enhanced AI prompt for financial analysis
+// Create a prompt for the AI to analyze the stock data
 function generateAIPrompt(stockData: StockData, newsArticles: NewsArticle[], timeframe: string, technicalIndicators: TechnicalIndicator[]): string {
   const startDate = new Date(stockData.startDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
   const endDate = new Date(stockData.endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -1328,7 +1336,7 @@ Provide exactly 2-3 drivers in this format:
 IMPORTANT: Keep each driver explanation to 1-2 sentences maximum. Be specific but concise. Focus on the most impactful factors for this specific timeframe.`
 }
 
-// Call Gemini for analysis
+// Send prompt to Gemini AI and get analysis
 async function getGeminiAnalysis(prompt: string): Promise<string> {
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" })
@@ -1339,12 +1347,13 @@ async function getGeminiAnalysis(prompt: string): Promise<string> {
     return response.text() || 'Unable to generate analysis.'
   } catch (error) {
     console.error('❌ Gemini API error:', error)
+    // TODO: Add better error handling and fallback analysis
     return 'Gemini analysis unavailable. Please check your API key and internet connection.'
   }
 }
 
-// Main analysis endpoint
-app.post('/analyze', async (req: Request, res: Response): Promise<void> => {
+// Main endpoint for stock analysis
+app.post('/api/analyze', async (req: Request, res: Response): Promise<void> => {
   const { ticker, timeframe } = req.body
 
   console.log('➡️ Incoming request:', { ticker, timeframe })
@@ -1462,8 +1471,8 @@ app.post('/analyze', async (req: Request, res: Response): Promise<void> => {
   }
 })
 
-// Ticker validation endpoint
-app.post('/validate-ticker', async (req: Request, res: Response): Promise<void> => {
+// Endpoint to validate if a ticker exists
+app.post('/api/validate-ticker', async (req: Request, res: Response): Promise<void> => {
   const { ticker } = req.body
 
   if (!ticker) {
@@ -1485,28 +1494,28 @@ app.post('/validate-ticker', async (req: Request, res: Response): Promise<void> 
   }
 })
 
-// Health check endpoint
-app.get('/health', (req: Request, res: Response) => {
+// Simple health check
+app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() })
 })
 
-// Simple test endpoint
-app.get('/test', (req: Request, res: Response) => {
+// Test endpoint to make sure server is running
+app.get('/api/test', (req: Request, res: Response) => {
   res.json({ message: 'Backend is working!', timestamp: new Date().toISOString() })
 })
 
-// For local development
+// Start the server for local development
 if (process.env.NODE_ENV !== 'production') {
   app.listen(port, () => {
     console.log(`✅ Server running at http://localhost:${port}`)
-    console.log('📊 Enhanced financial analysis with Gemini AI integration ready!')
+    console.log('📊 Market analysis API ready!')
   })
 }
 
-// Export for Vercel
+// Export for deployment
 export default app
 
-// Generate commentary for technical indicators
+// Add human-readable comments to technical indicators
 function generateIndicatorComment(indicatorName: string, value: number | string, signal: string): string {
   switch (indicatorName) {
     case "RSI (7)":
@@ -1589,7 +1598,7 @@ function generateIndicatorComment(indicatorName: string, value: number | string,
   }
 }
 
-// Format driver with proper categorization
+// Categorize and format the AI-generated drivers
 function formatDriver(driverText: string, assetType: 'stock' | 'etf' | 'crypto'): string {
   const validCategories = assetType === 'crypto' ? [
     'Analyst Actions',
