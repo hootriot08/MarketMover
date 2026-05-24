@@ -28,18 +28,38 @@ The model runs locally via [Ollama](https://ollama.ai). Nothing is sent off-box.
 | `hotkey`         | Press key combinations (`ctrl+c`, `cmd+space`, etc.)  |
 | `mouse_position` | Read the current cursor position                      |
 
-## Install
+## Install — on your laptop
+
+Open a terminal on the actual machine you want Llama to control (macOS or Linux),
+then:
 
 ```bash
-cd llamaos
+git clone https://github.com/hootriot08/MarketMover.git
+cd MarketMover/llamaos
 ./install.sh
 ```
 
-The installer will:
-1. Install Ollama if missing.
-2. Start `ollama serve` in the background.
-3. Pull `llama3.1:8b` (~4.7 GB).
-4. Create a Python venv and install dependencies.
+The installer is idempotent and:
+1. Installs Ollama (via `brew` on macOS, official script on Linux) if missing.
+2. Starts the `ollama` daemon if it isn't already running.
+3. Pulls `llama3.1:8b` (~4.7 GB) — the tool-calling brain.
+4. Pulls `llava:7b` (~4.5 GB) — the vision oracle. Set `LLAMAOS_SKIP_VISION=1` to skip.
+5. Creates `.venv` and installs Python dependencies.
+6. Runs `./run.sh --doctor` to verify the full stack (daemon up, models pulled,
+   real tool-call works against Llama 3.1, real vision works against Llava).
+
+### macOS note
+
+For mouse/keyboard control to work, grant **Accessibility** permission to your
+terminal app: System Settings → Privacy & Security → Accessibility → add iTerm
+(or Terminal). Without it, `pyautogui` clicks are silently ignored.
+
+### Verify everything works
+
+```bash
+./run.sh --doctor   # ~10 second sanity check
+python3 tests/test_live.py   # real end-to-end against your Ollama
+```
 
 ## Run
 

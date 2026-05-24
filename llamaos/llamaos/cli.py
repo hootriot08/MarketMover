@@ -26,8 +26,13 @@ def main() -> int:
     p.add_argument("--yolo", action="store_true", help="Skip confirmation prompts for destructive tools")
     p.add_argument("--quiet", action="store_true", help="Suppress per-step trace output")
     p.add_argument("--max-steps", type=int, default=12, help="Max tool-use steps per task")
+    p.add_argument("--doctor", action="store_true", help="Run environment + live Ollama checks and exit")
     p.add_argument("-c", "--command", help="Run one task non-interactively and exit")
     args = p.parse_args()
+
+    if args.doctor:
+        from .doctor import run as doctor_run
+        return doctor_run(host=args.host, brain=args.model)
 
     agent = Agent(AgentConfig(
         model=args.model,

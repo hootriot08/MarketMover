@@ -63,13 +63,17 @@ class Agent:
     config: AgentConfig = field(default_factory=AgentConfig)
     messages: list[dict] = field(default_factory=list)
 
+    _cached_client: Any = None
+
     def __post_init__(self) -> None:
         if not self.messages:
             self.messages.append({"role": "system", "content": SYSTEM})
 
     def _client(self):
-        import ollama
-        return ollama.Client(host=self.config.host)
+        if self._cached_client is None:
+            import ollama
+            self._cached_client = ollama.Client(host=self.config.host)
+        return self._cached_client
 
     def send(self, user_input: str) -> str:
         self.messages.append({"role": "user", "content": user_input})
