@@ -21,6 +21,7 @@ The model runs locally via [Ollama](https://ollama.ai). Nothing is sent off-box.
 | `processes`      | Top processes by CPU or memory                        |
 | `network`        | Interfaces, addresses, per-NIC IO counters            |
 | `screenshot`     | Capture the screen (or a region) to PNG               |
+| `see_screen`     | Capture + ask **llava** to describe what's visible    |
 | `click`          | Click the mouse at (x, y)                             |
 | `move_mouse`     | Move the cursor                                       |
 | `type_text`      | Type a string at the focused control                  |
@@ -117,11 +118,39 @@ llamaos/
 The agent uses Ollama's **native tool-calling** support in Llama 3.1, so tool
 calls are structured JSON — no regex parsing of model output.
 
-## Limitations
+## Vision via llava
 
-- **Llama 3.1 8B is text-only.** `screenshot` saves a PNG to disk but the model
-  cannot see it. To give the agent vision, point `--model` at a multimodal
-  model (e.g. `llava:13b`) and adapt the agent to forward image bytes.
+Llama 3.1 8B is text-only, so it can't see screenshots directly. Llava can't
+reliably do tool calls. The pattern used here keeps the strengths of both:
+
+- **llama3.1:8b** is the brain — it plans and calls tools.
+- **llava:7b** is a vision oracle, called on-demand via the `see_screen` tool.
+
+When the agent needs to know what's on screen, it calls `see_screen(query=...)`.
+That tool captures the screen, sends the PNG to llava with the query, and
+returns llava's text answer as a normal tool result. The brain then decides
+where to click / what to type based on llava's description.
+
+Override the vision model:
+```bash
+LLAMAOS_VISION_MODEL=llava:13b ./run.sh
+```
+
+Skip the llava pull entirely (smaller install, no `see_screen`):
+```bash
+LLAMAOS_SKIP_VISION=1 ./install.sh
+```
+
+## Tests
+
+```bash
+python3 tests/test_smoke.py
+```
+
+41 assertions covering tool registry, real shell/fs/system execution, the
+safety gate, and the full agent loop against a mocked Ollama.
+
+## Limitations
 - GUI tools (`pyautogui`) require a display server. On headless Linux they
   return `{"error": "GUI unavailable: ..."}`.
 - This is not a kernel and does not boot a machine. Building an actual bootable

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from . import fs, gui, shell, system
+from . import fs, gui, shell, system, vision
 
 ToolFn = Callable[[dict], Any]
 
@@ -17,6 +17,7 @@ REGISTRY: dict[str, tuple[dict, ToolFn]] = {
     "processes":      (system.PROC_SCHEMA,    lambda a: system.processes(**a)),
     "network":        (system.NET_SCHEMA,     lambda a: system.network()),
     "screenshot":     (gui.SCREENSHOT_SCHEMA, lambda a: gui.screenshot(**a)),
+    "see_screen":     (vision.SCHEMA,         vision.call),
     "click":          (gui.CLICK_SCHEMA,      lambda a: gui.click(**a)),
     "move_mouse":     (gui.MOVE_SCHEMA,       lambda a: gui.move(**a)),
     "type_text":      (gui.TYPE_SCHEMA,       lambda a: gui.type_text(**a)),

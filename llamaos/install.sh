@@ -16,8 +16,15 @@ if ! pgrep -x ollama >/dev/null 2>&1; then
 fi
 
 if ! ollama list 2>/dev/null | grep -q "llama3.1:8b"; then
-  echo "[llamaos] pulling llama3.1:8b (~4.7 GB)..."
+  echo "[llamaos] pulling llama3.1:8b (~4.7 GB) — tool-calling brain..."
   ollama pull llama3.1:8b
+fi
+
+if [ "${LLAMAOS_SKIP_VISION:-0}" != "1" ]; then
+  if ! ollama list 2>/dev/null | grep -q "llava:7b"; then
+    echo "[llamaos] pulling llava:7b (~4.5 GB) — vision oracle for see_screen..."
+    ollama pull llava:7b
+  fi
 fi
 
 if [ ! -d ".venv" ]; then
